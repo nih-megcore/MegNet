@@ -28,9 +28,9 @@ import scipy.io
 import tensorflow as tf
 from tensorflow import keras
 import tensorflow_addons as tfa
-
-import megnet_utilities
-from megnet_utilities import fPredictChunkAndVoting
+sys.path.append('/home/jstout/src/MegNET_2020')
+# import megnet_utilities
+from MEGnet.megnet_utilities import fPredictChunkAndVoting
 
 def fPredictICA(strSubjectICAPath, strOutputDir=None, strOutputType='list', strModelPath = 'model/MEGnet_final_model.h5'):
     #loading the data is from our Brainstorm Pipeline, it may require some minor edits based on how the data is saved.

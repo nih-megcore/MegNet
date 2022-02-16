@@ -5,11 +5,13 @@ import pandas as pd
 idx = pd.IndexSlice
 from scipy.io import loadmat
 import glob
-sys.path.append('/archive/bioinformatics/DLLab/AlexTreacher/src')
+# sys.path.append('/home/jstout/src/MEGnet')
 import scipy.stats as stats
-import paths
+#import paths
 import json
 import pickle
+
+import os.path as multi_stratified_k_fold  #Hack to get this to load totally nonsense import
 
 def fLoadData(strRatersLabels, strDBRoot, bCropSpatial=True, bAsSensorCap=False):
     #strRatersLabels = '/archive/bioinformatics/DLLab/AlexTreacher/data/MEGnet/AlexMcGillRatings.xlsx'
@@ -63,35 +65,35 @@ def fGetMeta(strSubject, strDatabase):
                         'Female':'F',
                         'female':'F'}
     #get the meta data for all subjects from the 3 databases
-    if strDatabase == 'HCP_MEG_20210212' or strDatabase == 'HCP':
-        dfSubject = dctMetaFiles[strDatabase].loc[strSubject]
-        return {'sex':dctSexConversion[dfSubject['Gender']],
-                'age':dfSubject['Age']}
-    elif strDatabase == 'iTAKL':
-        dfDatabase = dctMetaFiles[strDatabase]
-        lIndex = [x for x in dfDatabase.index.tolist() if strSubject in x]
-        assert lIndex.__len__() <= 1
-        try:
-            dfSubject = dfDatabase.loc[lIndex[0]]
-            #all of the iTAKL subjects are male
-            return {'sex':'M',
-                    'age':dfSubject['Age at Scan']}
-        except IndexError:
-            return {'sex':'M',
-                    'age':np.nan}
-    elif strDatabase == 'McGill':
-        # a few subjects got renamed, so fix that issue with if statements (The file name on the MNI matches the meta)
-        if strSubject == 'sub-0005':
-            strSubject = 'sub-0001'
-        try:
-            dfSubject = dctMetaFiles[strDatabase].loc[[strSubject]].iloc[0]
-            return {'sex':dctSexConversion[dfSubject['Gender']],
-                   'age':dfSubject['Age at scan']}
-        except KeyError: #if subject is not in meta
-            return {'sex':np.nan,
-                    'age':np.nan}
-    else:
-        raise ValueError(f'Database {strDatabase} not found')
+    # if strDatabase == 'HCP_MEG_20210212' or strDatabase == 'HCP':
+    #     dfSubject = dctMetaFiles[strDatabase].loc[strSubject]
+    #     return {'sex':dctSexConversion[dfSubject['Gender']],
+    #             'age':dfSubject['Age']}
+    # elif strDatabase == 'iTAKL':
+    #     dfDatabase = dctMetaFiles[strDatabase]
+    #     lIndex = [x for x in dfDatabase.index.tolist() if strSubject in x]
+    #     assert lIndex.__len__() <= 1
+    #     try:
+    #         dfSubject = dfDatabase.loc[lIndex[0]]
+    #         #all of the iTAKL subjects are male
+    #         return {'sex':'M',
+    #                 'age':dfSubject['Age at Scan']}
+    #     except IndexError:
+    #         return {'sex':'M',
+    #                 'age':np.nan}
+    # elif strDatabase == 'McGill':
+    #     # a few subjects got renamed, so fix that issue with if statements (The file name on the MNI matches the meta)
+    #     if strSubject == 'sub-0005':
+    #         strSubject = 'sub-0001'
+    #     try:
+    #         dfSubject = dctMetaFiles[strDatabase].loc[[strSubject]].iloc[0]
+    #         return {'sex':dctSexConversion[dfSubject['Gender']],
+    #                'age':dfSubject['Age at scan']}
+    #     except KeyError: #if subject is not in meta
+    #         return {'sex':np.nan,
+    #                 'age':np.nan}
+    # else:
+    #     raise ValueError(f'Database {strDatabase} not found')
 
 def fBuildScanListsFromSubjectLists(dfSubjectList, dfCombinedMeta):
     """
@@ -136,22 +138,22 @@ def fSplitData(intK = 10,
                dTestFraction = .2,
                intRandomSeed = 55,
                lDatabases = ['HCP_MEG_20210212','iTAKL','McGill'],
-               lPaths = [
-                   os.path.join(paths.strDataDir, 'MEGnet/shared_ICA_raters/HCP_MEG_20210212'),
-                   os.path.join(paths.strDataDir, 'MEGnet/shared_ICA_raters/iTAKL'),
-                   os.path.join(paths.strDataDir, 'MEGnet/shared_ICA_raters/McGill')
-                ],
-               lRatings = [
-                   os.path.join(paths.strDataDir, 'MEGnet/ratings/RG_LB_AP_HCP_MEG_20210212.xlsx'),
-                   os.path.join(paths.strDataDir, 'MEGnet/ratings/RG_LB_AP_iTAKL.xlsx'),
-                   os.path.join(paths.strDataDir, 'MEGnet/ratings/RG_LB_AP_McGill.xlsx')
-               ],
+               lPaths = [],
+                #    os.path.join(paths.strDataDir, 'MEGnet/shared_ICA_raters/HCP_MEG_20210212'),
+                #    os.path.join(paths.strDataDir, 'MEGnet/shared_ICA_raters/iTAKL'),
+                #    os.path.join(paths.strDataDir, 'MEGnet/shared_ICA_raters/McGill')
+                # ],
+               lRatings = [],
+               #     os.path.join(paths.strDataDir, 'MEGnet/ratings/RG_LB_AP_HCP_MEG_20210212.xlsx'),
+               #     os.path.join(paths.strDataDir, 'MEGnet/ratings/RG_LB_AP_iTAKL.xlsx'),
+               #     os.path.join(paths.strDataDir, 'MEGnet/ratings/RG_LB_AP_McGill.xlsx')
+               # ],
                dctMetaFiles = {
-                   'HCP_MEG_20210212':pd.read_excel(os.path.join(paths.strDataDir, 'MEGnet/HCP_MEG_Meta_AT.xlsx'), index_col=0),
-                   'iTAKL':pd.read_excel(os.path.join(paths.strDataDir, 'MEGnet/iTAKL_BRP_age_at_scan.xlsx'), index_col=0),
-                   'McGill':pd.read_csv(os.path.join(paths.strDataDir, 'MEGnet/McGillMeta_AT.csv'), index_col=1)
+                   # 'HCP_MEG_20210212':pd.read_excel(os.path.join(paths.strDataDir, 'MEGnet/HCP_MEG_Meta_AT.xlsx'), index_col=0),
+                   # 'iTAKL':pd.read_excel(os.path.join(paths.strDataDir, 'MEGnet/iTAKL_BRP_age_at_scan.xlsx'), index_col=0),
+                   # 'McGill':pd.read_csv(os.path.join(paths.strDataDir, 'MEGnet/McGillMeta_AT.csv'), index_col=1)
                },
-               strOutDir = os.path.join(paths.strSourceDir, 'MEG_artifact/ExperimentOutputs/resubmission/DataSplit')
+               # strOutDir = os.path.join(paths.strSourceDir, 'MEG_artifact/ExperimentOutputs/resubmission/DataSplit')
                ):
     #set up some paths for the data
     dctMetaFiles['iTAKL'].index = ['_'.join(x.split('_')[1:]) for x in dctMetaFiles['iTAKL'].index.tolist()]
@@ -289,10 +291,10 @@ def fSplitData(intK = 10,
         dfSplitStats.loc[f'Train{i}'] = fSplitStats(dfCombinedMeta, dfTrain.loc[:,i], lContinuousStratifiers, lCatagoricalStratifiers)
         dfSplitStats.loc[f'Val{i}'] = fSplitStats(dfCombinedMeta, dfVal.loc[:,i], lContinuousStratifiers, lCatagoricalStratifiers)
 
-    dfTrain.to_csv(os.path.join(strOutDir,'TrainScans.csv'))
-    dfVal.to_csv(os.path.join(strOutDir,'ValidationScans.csv'))
-    dfTest.to_csv(os.path.join(strOutDir,'TestScans.csv'))
-    dfSplitStats.to_csv(os.path.join(strOutDir,'SplitStats.csv'))
+    # dfTrain.to_csv(os.path.join(strOutDir,'TrainScans.csv'))
+    # dfVal.to_csv(os.path.join(strOutDir,'ValidationScans.csv'))
+    # dfTest.to_csv(os.path.join(strOutDir,'TestScans.csv'))
+    # dfSplitStats.to_csv(os.path.join(strOutDir,'SplitStats.csv'))
 
     return dfTrain, dfVal, dfTest, dfSplitStats
 
@@ -319,17 +321,17 @@ def fChunkData(arrSpatialMap, arrTimeSeries, intLabel, intModelLen=15000, intOve
     return lSpatialSubjectSlices, lTemporalSubjectSlices, lLabel
 
 
-def fLoadAndPickleData(strTrainDFPath = os.path.join(paths.strSourceDir, 'MEG_artifact/ExperimentOutputs/resubmission/DataSplit/TrainScans.csv'),
-                       strValDFPath = os.path.join(paths.strSourceDir, 'MEG_artifact/ExperimentOutputs/resubmission/DataSplit/ValidationScans.csv'),
-                       strTestDFPath = os.path.join(paths.strSourceDir, 'MEG_artifact/ExperimentOutputs/resubmission/DataSplit/TestScans.csv'),
+def fLoadAndPickleData(strTrainDFPath = None, #os.path.join(paths.strSourceDir, 'MEG_artifact/ExperimentOutputs/resubmission/DataSplit/TrainScans.csv'),
+                       strValDFPath = None, #os.path.join(paths.strSourceDir, 'MEG_artifact/ExperimentOutputs/resubmission/DataSplit/ValidationScans.csv'),
+                       strTestDFPath = None, #os.path.join(paths.strSourceDir, 'MEG_artifact/ExperimentOutputs/resubmission/DataSplit/TestScans.csv'),
                        dctDatabaseRatingPaths = {
                             'HCP_MEG_20210212':'/archive/bioinformatics/DLLab/AlexTreacher/data/MEGnet/ratings/RG_LB_AP_ED_HCP_MEG_20210212_final.xlsx',
                             'iTAKL':'/archive/bioinformatics/DLLab/AlexTreacher/data/MEGnet/ratings/RG_LB_AP_ED_iTAKL_final.xlsx',
                             'McGill':'/archive/bioinformatics/DLLab/AlexTreacher/data/MEGnet/ratings/RG_LB_AP_ED_McGill_final.xlsx',
                         },
                         intNComponents = 20,
-                        strDataDir = os.path.join(paths.strDataDir, 'MEGnet/shared_ICA_raters'),
-                        strOutDir = os.path.join(paths.strDataDir, 'MEGnet/FoldData'),
+                        strDataDir = None, #os.path.join(paths.strDataDir, 'MEGnet/shared_ICA_raters'),
+                        strOutDir = None, #os.path.join(paths.strDataDir, 'MEGnet/FoldData'),
                         intModelLen = 60*250,
                         intOverlap=0,#for the training/validation there is no overlap set, for testing the complete lenght model (with voting) we will have a 15 second overlap
                         ):

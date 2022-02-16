@@ -1,4 +1,4 @@
-name: DLLabMEGnet
+#name: DLLabMEGnet
 channels:
   - nvidia
   - conda-forge
@@ -202,5 +202,5 @@ dependencies:
     - urllib3==1.26.3
     - werkzeug==1.0.1
     - wrapt==1.12.1
-prefix: /project/bioinformatics/DLLab/shared/CondaEnvironments/DLLabMEGnet
+      #prefix: /project/bioinformatics/DLLab/shared/CondaEnvironments/DLLabMEGnet
 
