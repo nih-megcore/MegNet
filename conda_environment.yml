@@ -202,5 +202,7 @@ dependencies:
     - urllib3==1.26.3
     - werkzeug==1.0.1
     - wrapt==1.12.1
+    - mne 
+    - git+https://github.com/mne-tools/mne-hcp.git
       #prefix: /project/bioinformatics/DLLab/shared/CondaEnvironments/DLLabMEGnet
 
