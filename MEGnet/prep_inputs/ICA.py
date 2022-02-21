@@ -71,8 +71,6 @@ def make_head_outlines_new(sphere, pos, outlines, clip_origin):
 # 
 # =============================================================================
 
-# class generate_
-
 def _make_ica(filename):
     # read in data - for final version remove the cropping
     raw=mne.io.read_raw_fif(filename)
@@ -86,19 +84,39 @@ def _make_ica(filename):
     ica.fit(filt_raw)
     return ica
 
-# # Def test
-def test_:
-    filename = 'data/hariri_data/sub-ON97504_ses-01_task-haririhammer_run-01_meg_250srate_meg.fif'
-    raw = mne.io.read_raw_fif(filename).pick_types(meg='mag')
+
+def test_circle_plot():
+    from pathlib import Path
+    download_path = '/tmp/test'
+    path = mne.datasets.sample.data_path(download_path)
+    filename = Path(path) / 'MEG/sample/sample_audvis_raw.fif'
+    raw = mne.io.read_raw_fif(filename).crop(60.0).pick_types(meg='mag')
     ica = _make_ica(filename)
     mags = raw.ch_names
+    sensor_pos2circle(raw, ica)
+    # create_circle_plot(raw, ica)
 
-# =============================================================================
-# Process
-# =============================================================================
 
-def create_circle_plot(raw, ica):
+def sensor_pos2circle(raw, ica):
+    '''
+    Project the sensor positions to a unit circle and return positions
+    Currently works with MNE chan_type == mag  (includes CTF ax gradiometers)
+
+    Parameters
+    ----------
+    raw : mne.io.{fiff,ds}.raw.Raw
+        Mne format dataset.  
+    ica : mne.preprocessing.ica.ICA
+        MNE ICA instance
+
+    Returns
+    -------
+    pos_new : numpy.ndarray 
+        Position of channels projected to the unit circle. (#chans X 2)
+
+    '''
     mags = raw.ch_names
+    n_components = ica.n_components
     # extract magnetometer positions
     data_picks, pos, merge_channels, names, ch_type, sphere, clip_origin = \
         mne.viz.topomap._prepare_topomap_plot(ica, 'mag')
@@ -142,15 +160,22 @@ def create_circle_plot(raw, ica):
         newerR[i] = min(newR[i]*D[i],1)
     [Xnew,Ynew]=pol2cart(newerR,TH)
     pos_new=np.transpose(np.vstack((Xnew,Ynew)))
-    
+    return pos_new
+
+def circle_plot(circle_pos=None, ica=None):
+    '''Generate the plot'''
+    n_components = ica.n_components
     # create a circular outline without nose and ears, and get coordinates
-    outlines_new = make_head_outlines_new(np.array([0,0,0,1]),pos_new,'head',(0,0))
+    outlines_new = make_head_outlines_new(np.array([0,0,0,1]),
+                                          circle_pos,
+                                          'head',
+                                          (0,0))
     outline_coords=np.array(outlines_new['head'])
     
     # masking the outline only works on some matplotlib backends, so I've commented it out
     for comp in np.arange(0,n_components,1):
         data = np.dot(ica.mixing_matrix_[:,comp].T,ica.pca_components_[:ica.n_components_])
-        mne.viz.plot_topomap(data,pos_new,sensors=False,outlines=outlines_new,extrapolate='head',sphere=[0,0,0,1],contours=0,res=128)
+        mne.viz.plot_topomap(data,circle_pos,sensors=False,outlines=outlines_new,extrapolate='head',sphere=[0,0,0,1],contours=0,res=128)
         #plt.plot(outline_coords[0,:],outline_coords[1,:],'white')
     
 
