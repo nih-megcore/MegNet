@@ -204,5 +204,7 @@ dependencies:
     - wrapt==1.12.1
     - mne 
     - git+https://github.com/mne-tools/mne-hcp.git
+    - tqdm
+    - pooch 
       #prefix: /project/bioinformatics/DLLab/shared/CondaEnvironments/DLLabMEGnet
 
