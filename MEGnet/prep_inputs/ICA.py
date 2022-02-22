@@ -5,6 +5,7 @@
 # READ HCP ICAs in using MNE-hcp
 # Write out images as front end for MEGNET
 # Write out time chunks for MEGNET
+# Do we need to write topoplot to file - or direct classifiction?
 
 import os
 import numpy as np
@@ -84,8 +85,9 @@ def raw_preprocess(raw, mains_freq=None):
     return raw
     
      
-def calc_ica(raw, file_base=None, mains_freq=60, 
-             save=False, seedval=0):
+def calc_ica(raw, file_base=None, save=False, seedval=0):
+    '''Straightforward MNE ICA with MEGnet article specifications:
+        infomax, 20 components'''
     ica = ICA(n_components=20, random_state=seedval, method='infomax')
     ica.fit(raw)
     if save==True:
@@ -107,10 +109,10 @@ def main(filename, outbasename=None, mains_freq=60,
         file_base = os.path.splitext(file_base)[0]
     
     if save_preproc==True:
-        raw.save(file_base+'_250srate_meg.fif') #Save with EEG
+        raw.save(file_base+'_250srate_meg.fif', overwrite=True) #Save with EEG
     raw.pick_types(meg=True, eeg=False, ref_meg=False)
     
-    ica = calc_ica(raw, file_base=file_base, mains_freq=mains_freq, 
+    ica = calc_ica(raw, file_base=file_base, 
                    save=save_ica, seedval=seedval)
     
     circle_pos = sensor_pos2circle(raw, ica)
@@ -256,16 +258,36 @@ def circle_plot(circle_pos=None, data=None, out_fname=None):
                                           circle_pos,
                                           'head',
                                           (0,0))
-    outline_coords=np.array(outlines_new['head'])
-    fig, _ = mne.viz.plot_topomap(data,circle_pos,
+    #outline_coords=np.array(outlines_new['head'])
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(111)
+    
+    mnefig, _ = mne.viz.plot_topomap(data,circle_pos,
                                 sensors=False,
                                 outlines=outlines_new,
                                 extrapolate='head',
                                 sphere=[0,0,0,1.0],
-                                contours=0,res=128,
-                                show=False)
-    fig.figure.savefig(out_fname)
+                                contours=6,res=128,
+                                show=False,
+                                axes=ax)
+    mnefig.figure.savefig(out_fname)
+    plt.close(fig)
+    del mnefig
     
     
-
+if __name__ == '__main__':
+    import argparse
+    parser = argparse.ArgumentParser()  
+    parser.add_argument('-filename', help='Path to MEG dataset')
+    parser.add_argument('-results_dir', help='Path to save the results')
+    parser.add_argument('-line_freq', help='{60,50} Hz - AC electric frequency')
+    args = parser.parse_args()
+    
+    filename = args.filename
+    mains_freq = args.line_freq
+    
+    
+    main(filename, outbasename=None, mains_freq=60, 
+             save_preproc=True, save_ica=True, seedval=0,
+             results_dir=args.results_dir)
 
