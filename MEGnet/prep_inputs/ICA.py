@@ -10,6 +10,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 import mne
+from mne.preprocessing import ICA
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 from scipy import interpolate
 
@@ -74,19 +75,67 @@ def make_head_outlines_new(sphere, pos, outlines, clip_origin):
 # 
 # =============================================================================
 
-def _make_ica(filename):
-    # read in data - for final version remove the cropping
-    raw=mne.io.read_raw_fif(filename)
-    raw.crop(tmax=60).pick_types(meg='mag')
-    raw.load_data()
+def raw_preprocess(raw, mains_freq=None):
+    resample_freq = 250
+    #notch_freqs = range(mains_freq, int(resample_freq * 2/3), mains_freq)
+    raw.notch_filter(mains_freq) #notch_freqs)
+    raw.resample(resample_freq)
+    raw.filter(1.0, 100)
+    return raw
     
-    # filter data and perform ICA
-    n_components = 20
-    filt_raw = raw.copy().filter(l_freq=1,h_freq=None)
-    ica=mne.preprocessing.ICA(n_components=n_components,max_iter='auto')
-    ica.fit(filt_raw)
+     
+def calc_ica(raw, file_base=None, mains_freq=60, 
+             save=False, seedval=0):
+    ica = ICA(n_components=20, random_state=seedval, method='infomax')
+    ica.fit(raw)
+    if save==True:
+        out_filename = file_base + '_{}-ica.fif'.format(str(seedval))
+        ica.save(out_filename)
     return ica
 
+def main(filename, outbasename=None, mains_freq=60, 
+             save_preproc=False, save_ica=False, seedval=0,
+             results_dir='/fast/results_ica'):
+    raw = read_raw(filename)
+    raw = raw_preprocess(raw, mains_freq)
+    
+    #Set output names
+    if outbasename != None:
+        file_base = outbasename #Necessary for 4D datasets
+    else:
+        file_base = os.path.basename(filename)
+        file_base = os.path.splitext(file_base)[0]
+    
+    if save_preproc==True:
+        raw.save(file_base+'_250srate_meg.fif') #Save with EEG
+    raw.pick_types(meg=True, eeg=False, ref_meg=False)
+    
+    ica = calc_ica(raw, file_base=file_base, mains_freq=mains_freq, 
+                   save=save_ica, seedval=seedval)
+    
+    circle_pos = sensor_pos2circle(raw, ica)
+    
+    for comp in np.arange(0,ica.n_components,1):
+        data = np.dot(ica.mixing_matrix_[:,comp].T,ica.pca_components_[:ica.n_components_])
+        
+        out_fname = f'{results_dir}/{file_base}-ica-{str(comp)}.png'
+        circle_plot(circle_pos=circle_pos, 
+                    data=data, 
+                    out_fname=out_fname)
+        
+    
+    
+
+def test_main():
+    filename = '/fast/BIDS_HV_V1/bids/sub-ON02747/ses-01/meg/sub-ON02747_ses-01_task-airpuff_run-01_meg.ds'
+    raw = read_raw(filename)
+    assert raw.compensation_grade == 3
+    assert isinstance(raw, mne.io.ctf.ctf.RawCTF)
+    
+    filename = '/tmp/test/MNE-sample-data/MEG/sample/sample_audvis_raw.fif'
+    raw = read_raw(filename)
+    assert isinstance(raw, mne.io.fiff.raw.Raw)
+    
 def read_raw(filename):
     '''
     Use the appropriate MNE io reader for the MEG type
@@ -113,8 +162,8 @@ def read_raw(filename):
             raw.apply_gradient_compensation(3)
     #XXX Hack -- figure out the correct way to identify 4D/BTI data
     #Do we need to do ref compensation calculation?
-    elif ext == ',crfDC':
-        raw = mne.io.read_raw_bti(filename, preload=True)
+    elif filename[-4:]=='rfDC':
+        raw = mne.io.read_raw_bti(filename, preload=True, head_shape_fname=None)
     #XXX Hack - Confirm KIT assignment
     elif ext == '.sqd':
         raw = mne.io.read_raw_kit(filename, preload=True)
@@ -198,22 +247,25 @@ def sensor_pos2circle(raw, ica):
     pos_new=np.transpose(np.vstack((Xnew,Ynew)))
     return pos_new
 
-def circle_plot(circle_pos=None, ica=None):
-    '''Generate the plot'''
-    n_components = ica.n_components
+
+
+def circle_plot(circle_pos=None, data=None, out_fname=None):
+    '''Generate the plot and save'''
     # create a circular outline without nose and ears, and get coordinates
     outlines_new = make_head_outlines_new(np.array([0,0,0,1]),
                                           circle_pos,
                                           'head',
                                           (0,0))
     outline_coords=np.array(outlines_new['head'])
+    fig, _ = mne.viz.plot_topomap(data,circle_pos,
+                                sensors=False,
+                                outlines=outlines_new,
+                                extrapolate='head',
+                                sphere=[0,0,0,1.0],
+                                contours=0,res=128,
+                                show=False)
+    fig.figure.savefig(out_fname)
     
-    # masking the outline only works on some matplotlib backends, so I've commented it out
-    for comp in np.arange(0,n_components,1):
-        data = np.dot(ica.mixing_matrix_[:,comp].T,ica.pca_components_[:ica.n_components_])
-        mne.viz.plot_topomap(data,circle_pos,sensors=False,outlines=outlines_new,extrapolate='head',sphere=[0,0,0,1],contours=0,res=128)
-        #plt.plot(outline_coords[0,:],outline_coords[1,:],'white')
     
-
 
 
