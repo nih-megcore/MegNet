@@ -1,7 +1,12 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# TODO:  Apply bad channel finder for fif prior to ICA 
+# READ HCP ICAs in using MNE-hcp
+# Write out images as front end for MEGNET
+# Write out time chunks for MEGNET
 
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 import mne
@@ -63,9 +68,7 @@ def make_head_outlines_new(sphere, pos, outlines, clip_origin):
     outlines_dict['clip_radius'] = (clip_radius,) * 2
     outlines_dict['clip_origin'] = clip_origin      
     
-    outlines = outlines_dict
-    
-    return outlines
+    return outlines_dict
 
 # =============================================================================
 # 
@@ -83,6 +86,52 @@ def _make_ica(filename):
     ica=mne.preprocessing.ICA(n_components=n_components,max_iter='auto')
     ica.fit(filt_raw)
     return ica
+
+def read_raw(filename):
+    '''
+    Use the appropriate MNE io reader for the MEG type
+    For CTF/.ds datasets, gradient compensation will be checked and applied if
+    needed.
+
+    Parameters
+    ----------
+    filename : Path or PathStr
+        Path to file
+
+    Returns
+    -------
+    Raw MNE instance
+
+    '''
+    ext = os.path.splitext(filename)[-1]
+    if ext == '.fif':
+        raw = mne.io.read_raw_fif(filename, preload=True)
+    elif ext == '.ds':
+        raw = mne.io.read_raw_ctf(filename, preload=True, 
+                                  system_clock='ignore', clean_names=True)
+        if raw.compensation_grade != 3:
+            raw.apply_gradient_compensation(3)
+    #XXX Hack -- figure out the correct way to identify 4D/BTI data
+    #Do we need to do ref compensation calculation?
+    elif ext == ',crfDC':
+        raw = mne.io.read_raw_bti(filename, preload=True)
+    #XXX Hack - Confirm KIT assignment
+    elif ext == '.sqd':
+        raw = mne.io.read_raw_kit(filename, preload=True)
+    return raw
+
+
+def test_reader():
+    filename = '/fast/BIDS_HV_V1/bids/sub-ON02747/ses-01/meg/sub-ON02747_ses-01_task-airpuff_run-01_meg.ds'
+    raw = read_raw(filename)
+    assert raw.compensation_grade == 3
+    assert isinstance(raw, mne.io.ctf.ctf.RawCTF)
+    
+    filename = '/tmp/test/MNE-sample-data/MEG/sample/sample_audvis_raw.fif'
+    raw = read_raw(filename)
+    assert isinstance(raw, mne.io.fiff.raw.Raw)
+
+
 
 def sensor_pos2circle(raw, ica):
     '''
