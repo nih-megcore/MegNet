@@ -84,19 +84,6 @@ def _make_ica(filename):
     ica.fit(filt_raw)
     return ica
 
-
-def test_circle_plot():
-    from pathlib import Path
-    download_path = '/tmp/test'
-    path = mne.datasets.sample.data_path(download_path)
-    filename = Path(path) / 'MEG/sample/sample_audvis_raw.fif'
-    raw = mne.io.read_raw_fif(filename).crop(60.0).pick_types(meg='mag')
-    ica = _make_ica(filename)
-    mags = raw.ch_names
-    sensor_pos2circle(raw, ica)
-    # create_circle_plot(raw, ica)
-
-
 def sensor_pos2circle(raw, ica):
     '''
     Project the sensor positions to a unit circle and return positions
@@ -115,7 +102,7 @@ def sensor_pos2circle(raw, ica):
         Position of channels projected to the unit circle. (#chans X 2)
 
     '''
-    mags = raw.ch_names
+    num_chans = len(raw.ch_names)
     n_components = ica.n_components
     # extract magnetometer positions
     data_picks, pos, merge_channels, names, ch_type, sphere, clip_origin = \
@@ -135,8 +122,8 @@ def sensor_pos2circle(raw, ica):
     # project the spherical locations to a plane
     # this calculates a new R for each coordinate, based on PHI
     # then transform the projection to Cartesian coordinates
-    channel_locations_2d=np.zeros([len(mags),2])
-    newR=np.zeros((len(mags),))
+    channel_locations_2d=np.zeros([num_chans,2])
+    newR=np.zeros((num_chans,))
     newR = 1 - PHI/np.pi*2
     channel_locations_2d=np.transpose(pol2cart(newR,TH))
     X=channel_locations_2d[:,0]
@@ -155,8 +142,8 @@ def sensor_pos2circle(raw, ica):
     D = finterp(TH)
     
     # Apply the scaling to every radii coordinate and transform back to Cartesian coordinates
-    newerR=np.zeros((len(mags),))
-    for i in np.arange(0,len(mags)):
+    newerR=np.zeros((num_chans,))
+    for i in np.arange(0,num_chans):
         newerR[i] = min(newR[i]*D[i],1)
     [Xnew,Ynew]=pol2cart(newerR,TH)
     pos_new=np.transpose(np.vstack((Xnew,Ynew)))
