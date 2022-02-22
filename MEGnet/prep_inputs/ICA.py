@@ -85,19 +85,20 @@ def raw_preprocess(raw, mains_freq=None):
     return raw
     
      
-def calc_ica(raw, file_base=None, save=False, seedval=0):
+def calc_ica(raw, file_base=None, save=False, results_dir=None, seedval=0):
     '''Straightforward MNE ICA with MEGnet article specifications:
         infomax, 20 components'''
     ica = ICA(n_components=20, random_state=seedval, method='infomax')
     ica.fit(raw)
     if save==True:
         out_filename = file_base + '_{}-ica.fif'.format(str(seedval))
+        out_filename = os.path.join(results_dir, out_filename)
         ica.save(out_filename)
     return ica
 
 def main(filename, outbasename=None, mains_freq=60, 
              save_preproc=False, save_ica=False, seedval=0,
-             results_dir='/fast/results_ica'):
+             results_dir=None):
     raw = read_raw(filename)
     raw = raw_preprocess(raw, mains_freq)
     
@@ -109,10 +110,11 @@ def main(filename, outbasename=None, mains_freq=60,
         file_base = os.path.splitext(file_base)[0]
     
     if save_preproc==True:
-        raw.save(file_base+'_250srate_meg.fif', overwrite=True) #Save with EEG
+        out_fname = os.path.join(results_dir, file_base+'_250srate_meg.fif')
+        raw.save(out_fname, overwrite=True) #Save with EEG
     raw.pick_types(meg=True, eeg=False, ref_meg=False)
     
-    ica = calc_ica(raw, file_base=file_base, 
+    ica = calc_ica(raw, file_base=file_base, results_dir=results_dir,
                    save=save_ica, seedval=seedval)
     
     circle_pos = sensor_pos2circle(raw, ica)
