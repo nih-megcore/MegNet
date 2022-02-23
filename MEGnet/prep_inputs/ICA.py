@@ -72,74 +72,6 @@ def make_head_outlines_new(sphere, pos, outlines, clip_origin):
     
     return outlines_dict
 
-# =============================================================================
-# 
-# =============================================================================
-
-def raw_preprocess(raw, mains_freq=None):
-    resample_freq = 250
-    #notch_freqs = range(mains_freq, int(resample_freq * 2/3), mains_freq)
-    raw.notch_filter(mains_freq) #notch_freqs)
-    raw.resample(resample_freq)
-    raw.filter(1.0, 100)
-    return raw
-    
-     
-def calc_ica(raw, file_base=None, save=False, results_dir=None, seedval=0):
-    '''Straightforward MNE ICA with MEGnet article specifications:
-        infomax, 20 components'''
-    ica = ICA(n_components=20, random_state=seedval, method='infomax')
-    ica.fit(raw)
-    if save==True:
-        out_filename = file_base + '_{}-ica.fif'.format(str(seedval))
-        out_filename = os.path.join(results_dir, out_filename)
-        ica.save(out_filename)
-    return ica
-
-def main(filename, outbasename=None, mains_freq=60, 
-             save_preproc=False, save_ica=False, seedval=0,
-             results_dir=None):
-    raw = read_raw(filename)
-    raw = raw_preprocess(raw, mains_freq)
-    
-    #Set output names
-    if outbasename != None:
-        file_base = outbasename #Necessary for 4D datasets
-    else:
-        file_base = os.path.basename(filename)
-        file_base = os.path.splitext(file_base)[0]
-    
-    if save_preproc==True:
-        out_fname = os.path.join(results_dir, file_base+'_250srate_meg.fif')
-        raw.save(out_fname, overwrite=True) #Save with EEG
-    raw.pick_types(meg=True, eeg=False, ref_meg=False)
-    
-    ica = calc_ica(raw, file_base=file_base, results_dir=results_dir,
-                   save=save_ica, seedval=seedval)
-    
-    circle_pos = sensor_pos2circle(raw, ica)
-    
-    for comp in np.arange(0,ica.n_components,1):
-        data = np.dot(ica.mixing_matrix_[:,comp].T,ica.pca_components_[:ica.n_components_])
-        
-        out_fname = f'{results_dir}/{file_base}-ica-{str(comp)}.png'
-        circle_plot(circle_pos=circle_pos, 
-                    data=data, 
-                    out_fname=out_fname)
-        
-    
-    
-
-def test_main():
-    filename = '/fast/BIDS_HV_V1/bids/sub-ON02747/ses-01/meg/sub-ON02747_ses-01_task-airpuff_run-01_meg.ds'
-    raw = read_raw(filename)
-    assert raw.compensation_grade == 3
-    assert isinstance(raw, mne.io.ctf.ctf.RawCTF)
-    
-    filename = '/tmp/test/MNE-sample-data/MEG/sample/sample_audvis_raw.fif'
-    raw = read_raw(filename)
-    assert isinstance(raw, mne.io.fiff.raw.Raw)
-    
 def read_raw(filename):
     '''
     Use the appropriate MNE io reader for the MEG type
@@ -167,24 +99,36 @@ def read_raw(filename):
     #XXX Hack -- figure out the correct way to identify 4D/BTI data
     #Do we need to do ref compensation calculation?
     elif filename[-4:]=='rfDC':
-        raw = mne.io.read_raw_bti(filename, preload=True, head_shape_fname=None)
+        raw = mne.io.read_raw_bti(filename, preload=True, 
+                                  head_shape_fname=None)
     #XXX Hack - Confirm KIT assignment
     elif ext == '.sqd':
         raw = mne.io.read_raw_kit(filename, preload=True)
     return raw
 
 
-def test_reader():
-    filename = '/fast/BIDS_HV_V1/bids/sub-ON02747/ses-01/meg/sub-ON02747_ses-01_task-airpuff_run-01_meg.ds'
-    raw = read_raw(filename)
-    assert raw.compensation_grade == 3
-    assert isinstance(raw, mne.io.ctf.ctf.RawCTF)
+def raw_preprocess(raw, mains_freq=None):
+    '''
+    Preprocess data with 250Hz resampling, notch_filter, and 1-100Hz bp
+    Returns instance of mne raw
+    '''
+    resample_freq = 250
+    #notch_freqs = range(mains_freq, int(resample_freq * 2/3), mains_freq)
+    raw.notch_filter(mains_freq) #notch_freqs)
+    raw.resample(resample_freq)
+    raw.filter(1.0, 100)
+    return raw
     
-    filename = '/tmp/test/MNE-sample-data/MEG/sample/sample_audvis_raw.fif'
-    raw = read_raw(filename)
-    assert isinstance(raw, mne.io.fiff.raw.Raw)
-
-
+def calc_ica(raw, file_base=None, save=False, results_dir=None, seedval=0):
+    '''Straightforward MNE ICA with MEGnet article specifications:
+        infomax, 20 components'''
+    ica = ICA(n_components=20, random_state=seedval, method='infomax')
+    ica.fit(raw)
+    if save==True:
+        out_filename = file_base + '_{}-ica.fif'.format(str(seedval))
+        out_filename = os.path.join(results_dir, out_filename)
+        ica.save(out_filename)
+    return ica
 
 def sensor_pos2circle(raw, ica):
     '''
@@ -205,7 +149,6 @@ def sensor_pos2circle(raw, ica):
 
     '''
     num_chans = len(raw.ch_names)
-    n_components = ica.n_components
     # extract magnetometer positions
     data_picks, pos, merge_channels, names, ch_type, sphere, clip_origin = \
         mne.viz.topomap._prepare_topomap_plot(ica, 'mag')
@@ -228,8 +171,6 @@ def sensor_pos2circle(raw, ica):
     newR=np.zeros((num_chans,))
     newR = 1 - PHI/np.pi*2
     channel_locations_2d=np.transpose(pol2cart(newR,TH))
-    X=channel_locations_2d[:,0]
-    Y=channel_locations_2d[:,1]
     
     # use ConvexHull to get the sensor indices around the edges, 
     # and scale their radii to a unit circle
@@ -237,13 +178,15 @@ def sensor_pos2circle(raw, ica):
     Border=hull.vertices
     Dborder = 1/newR[Border]
     
-    # Define an interpolation function of the TH coordinate to define a scaling factor for R
-    FuncTh=np.hstack([TH[Border]-2*np.pi, TH[Border], TH[Border]+2*np.pi]) #.reshape((57,));  #<<<< 57 doesnt work - does this need to be here
+    # Define an interpolation function of the TH coordinate to define a scaling 
+    # factor for R
+    FuncTh=np.hstack([TH[Border]-2*np.pi, TH[Border], TH[Border]+2*np.pi]) 
     funcD=np.hstack((Dborder,Dborder,Dborder))
     finterp = interpolate.interp1d(FuncTh,funcD);
     D = finterp(TH)
     
-    # Apply the scaling to every radii coordinate and transform back to Cartesian coordinates
+    # Apply the scaling to every radii coordinate and transform back to 
+    # Cartesian coordinates
     newerR=np.zeros((num_chans,))
     for i in np.arange(0,num_chans):
         newerR[i] = min(newR[i]*D[i],1)
@@ -260,7 +203,6 @@ def circle_plot(circle_pos=None, data=None, out_fname=None):
                                           circle_pos,
                                           'head',
                                           (0,0))
-    #outline_coords=np.array(outlines_new['head'])
     fig = plt.figure(figsize=(8, 6))
     ax = fig.add_subplot(111)
     
@@ -276,6 +218,67 @@ def circle_plot(circle_pos=None, data=None, out_fname=None):
     plt.close(fig)
     del mnefig
     
+
+def main(filename, outbasename=None, mains_freq=60, 
+             save_preproc=False, save_ica=False, seedval=0,
+             results_dir=None):
+    '''
+        Perform all of the steps to preprocess the ica maps:
+        Read raw data
+        Filter / notch filter / resample (250Hz) 
+        Calculate 20 component ICA using infomax
+        Warp sensors to circle plot
+        Save ICA to output dir
+        Save ICA topoplots to output dir
+        
+        Parameters
+        ----------
+        
+        filename : str
+            Path to file
+        outbasename : str
+            Required for 4D/BTI datasets
+            If none defaults to basename(filename)
+        mains_freq : float
+            Line frequency 50 or 60 Hz
+        save_preproc : Bool 
+            Save the preprocessed data
+        save_ica : Bool 
+            Save the ica output 
+        seedval : Int
+            Set the numpy random seed
+        results_dir : str / path
+            Path to output directory
+            
+    '''
+    raw = read_raw(filename)
+    raw = raw_preprocess(raw, mains_freq)
+    
+    #Set output names
+    if outbasename != None:
+        file_base = outbasename #Necessary for 4D datasets
+    else:
+        file_base = os.path.basename(filename)
+        file_base = os.path.splitext(file_base)[0]
+    
+    if save_preproc==True:
+        out_fname = os.path.join(results_dir, file_base+'_250srate_meg.fif')
+        raw.save(out_fname, overwrite=True) #Save with EEG
+    raw.pick_types(meg=True, eeg=False, ref_meg=False)
+    
+    ica = calc_ica(raw, file_base=file_base, results_dir=results_dir,
+                   save=save_ica, seedval=seedval)
+    
+    circle_pos = sensor_pos2circle(raw, ica)
+    
+    for comp in np.arange(0,ica.n_components,1):
+        data = np.dot(ica.mixing_matrix_[:,comp].T,ica.pca_components_[:ica.n_components_])
+        
+        out_fname = f'{results_dir}/{file_base}-ica-{str(comp)}.png'
+        circle_plot(circle_pos=circle_pos, 
+                    data=data, 
+                    out_fname=out_fname)
+    
     
 if __name__ == '__main__':
     import argparse
@@ -287,7 +290,6 @@ if __name__ == '__main__':
     
     filename = args.filename
     mains_freq = args.line_freq
-    
     
     main(filename, outbasename=None, mains_freq=60, 
              save_preproc=True, save_ica=True, seedval=0,
