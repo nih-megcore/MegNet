@@ -1,6 +1,10 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+# @author: Allison Nugent
+# @author: Jeff Stout
+
+
 # TODO:  Apply bad channel finder for fif prior to ICA 
 # READ HCP ICAs in using MNE-hcp
 # Write out images as front end for MEGNET
@@ -14,6 +18,7 @@ import mne
 from mne.preprocessing import ICA
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 from scipy import interpolate
+from scipy.io import savemat
 
 # =============================================================================
 # Helper Functions
@@ -203,7 +208,7 @@ def circle_plot(circle_pos=None, data=None, out_fname=None):
                                           circle_pos,
                                           'head',
                                           (0,0))
-    fig = plt.figure(figsize=(8, 6))
+    fig = plt.figure(figsize=(6, 6))
     ax = fig.add_subplot(111)
     
     mnefig, _ = mne.viz.plot_topomap(data,circle_pos,
@@ -216,7 +221,16 @@ def circle_plot(circle_pos=None, data=None, out_fname=None):
                                 axes=ax)
     mnefig.figure.savefig(out_fname)
     plt.close(fig)
+    
+    mat_fname = os.path.splitext(out_fname)[0]+'.mat'
+    
+    matrix_out = np.frombuffer(mnefig.figure.canvas.tostring_rgb(), dtype=np.uint8)
+    matrix_out = matrix_out.reshape(mnefig.figure.canvas.get_width_height()[::-1] + (3,))
+    # matrix_out = mnefig.get_array().filled(0)
+    savemat(mat_fname, 
+            {'array':matrix_out})
     del mnefig
+    #return matrix_out
     
 
 def main(filename, outbasename=None, mains_freq=60, 
@@ -272,12 +286,23 @@ def main(filename, outbasename=None, mains_freq=60,
     circle_pos = sensor_pos2circle(raw, ica)
     
     for comp in np.arange(0,ica.n_components,1):
-        data = np.dot(ica.mixing_matrix_[:,comp].T,ica.pca_components_[:ica.n_components_])
+        data = np.dot(ica.mixing_matrix_[:,comp].T,
+                      ica.pca_components_[:ica.n_components_])
         
         out_fname = f'{results_dir}/{file_base}-ica-{str(comp)}.png'
         circle_plot(circle_pos=circle_pos, 
                     data=data, 
                     out_fname=out_fname)
+    
+    # Save ICA timeseries as input for classification
+    # Currently inputs to classification are matlab arrays
+    ica_ts = ica.get_sources(raw)._data.T
+    outfname = f'{results_dir}/{file_base}-ica-ts.mat'
+    savemat(outfname, 
+            {'arrICATimeSeries':ica_ts})
+    
+    
+    
     
     
 if __name__ == '__main__':
