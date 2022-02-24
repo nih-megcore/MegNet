@@ -4,7 +4,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="megnet", 
+    name="MEGnet", 
     version="0.2",
     description="Create ICA features and classify ICA components",
     long_description=long_description,
