@@ -224,7 +224,6 @@ def circle_plot(circle_pos=None, data=None, out_fname=None):
     
     matrix_out = np.frombuffer(mnefig.figure.canvas.tostring_rgb(), dtype=np.uint8)
     matrix_out = matrix_out.reshape(mnefig.figure.canvas.get_width_height()[::-1] + (3,))
-    # matrix_out = mnefig.get_array().filled(0)
     savemat(mat_fname, 
             {'array':matrix_out})
     del mnefig
