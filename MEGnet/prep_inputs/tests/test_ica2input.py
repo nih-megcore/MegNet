@@ -6,6 +6,7 @@ Created on Mon Feb 21 18:51:35 2022
 @author: jstout
 Minimal testing - needs to be improved with abstraction of tmpdir
 Also needs more comparitive testing with results
+Also more granular testing of functions would be preferrable
 """
 
 import numpy as np

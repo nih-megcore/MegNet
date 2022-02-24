@@ -206,7 +206,7 @@ def circle_plot(circle_pos=None, data=None, out_fname=None):
                                           circle_pos,
                                           'head',
                                           (0,0))
-    fig = plt.figure(figsize=(6, 6))
+    fig = plt.figure(figsize=(1.5, 1.8), dpi=100)
     ax = fig.add_subplot(111)
     
     mnefig, _ = mne.viz.plot_topomap(data,circle_pos,
@@ -214,7 +214,7 @@ def circle_plot(circle_pos=None, data=None, out_fname=None):
                                 outlines=outlines_new,
                                 extrapolate='head',
                                 sphere=[0,0,0,1.0],
-                                contours=6,res=128,
+                                contours=6,res=120,
                                 show=False,
                                 axes=ax)
     mnefig.figure.savefig(out_fname)
@@ -289,7 +289,7 @@ def main(filename, outbasename=None, mains_freq=60,
         data = np.dot(ica.mixing_matrix_[:,comp].T,
                       ica.pca_components_[:ica.n_components_])
         
-        out_fname = f'{results_dir}/{file_base}-ica-{str(comp)}.png'
+        out_fname = f'{results_dir}/component{str(comp+1)}.png' #'{file_base}-ica-{str(comp)}.png'
         circle_plot(circle_pos=circle_pos[mag_idxs], 
                     data=data[mag_idxs], 
                     out_fname=out_fname)
@@ -297,7 +297,7 @@ def main(filename, outbasename=None, mains_freq=60,
     # Save ICA timeseries as input for classification
     # Currently inputs to classification are matlab arrays
     ica_ts = ica.get_sources(raw)._data.T
-    outfname = f'{results_dir}/{file_base}-ica-ts.mat'
+    outfname = f'{results_dir}/ICATimeSeries.mat' #'{file_base}-ica-ts.mat'
     savemat(outfname, 
             {'arrICATimeSeries':ica_ts})
     
