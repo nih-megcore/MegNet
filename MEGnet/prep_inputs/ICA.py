@@ -283,6 +283,9 @@ def main(filename, outbasename=None, mains_freq=60,
     ica = calc_ica(raw, file_base=file_base, results_dir=results_dir,
                    save=save_ica, seedval=seedval)
     
+    # Topography only works with mags - get index for display
+    mag_idxs = mne.pick_types(raw.info, meg='mag')
+    
     circle_pos = sensor_pos2circle(raw, ica)
     
     for comp in np.arange(0,ica.n_components,1):
@@ -290,8 +293,8 @@ def main(filename, outbasename=None, mains_freq=60,
                       ica.pca_components_[:ica.n_components_])
         
         out_fname = f'{results_dir}/{file_base}-ica-{str(comp)}.png'
-        circle_plot(circle_pos=circle_pos, 
-                    data=data, 
+        circle_plot(circle_pos=circle_pos[mag_idxs], 
+                    data=data[mag_idxs], 
                     out_fname=out_fname)
     
     # Save ICA timeseries as input for classification
@@ -301,8 +304,7 @@ def main(filename, outbasename=None, mains_freq=60,
     savemat(outfname, 
             {'arrICATimeSeries':ica_ts})
     
-    
-    
+  
     
     
 if __name__ == '__main__':
