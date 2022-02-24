@@ -7,8 +7,6 @@
 
 # TODO:  Apply bad channel finder for fif prior to ICA 
 # READ HCP ICAs in using MNE-hcp
-# Write out images as front end for MEGNET
-# Write out time chunks for MEGNET
 # Do we need to write topoplot to file - or direct classifiction?
 
 import os
