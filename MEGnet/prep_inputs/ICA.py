@@ -208,15 +208,20 @@ def circle_plot(circle_pos=None, data=None, out_fname=None):
                                           (0,0))
     fig = plt.figure(figsize=(1.5, 1.8), dpi=100)
     ax = fig.add_subplot(111)
+    ax.set_facecolor('k')
     
-    mnefig, _ = mne.viz.plot_topomap(data,circle_pos,
+    mnefig, contour = mne.viz.plot_topomap(data,circle_pos,
                                 sensors=False,
                                 outlines=outlines_new,
                                 extrapolate='head',
                                 sphere=[0,0,0,1.0],
-                                contours=6,res=120,
+                                contours=9,res=120,
                                 show=False,
-                                axes=ax)
+                                axes=ax, 
+                                )
+    contour.colors=['white']  #This is not working currently 
+    mnefig.set_cmap(plt.get_cmap('bwr'))
+    # plt.show()
     mnefig.figure.savefig(out_fname)
     plt.close(fig)
     
