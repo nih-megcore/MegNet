@@ -16,6 +16,5 @@ setuptools.setup(
         "License :: OSI Approved :: UNLICENSE",
         "Operating System :: Linux/Unix",
     ],
-    #scripts=['MEGnet/process_meg.py', 
-#             'MEGnet/process_inputs.py'],
+    scripts=['MEGnet/prep_inputs/ICA.py'],
 )
