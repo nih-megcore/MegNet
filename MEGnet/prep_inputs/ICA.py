@@ -17,6 +17,7 @@ from mne.preprocessing import ICA
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 from scipy import interpolate
 from scipy.io import savemat
+from scipy.stats import zscore
 
 # =============================================================================
 # Helper Functions
@@ -121,10 +122,26 @@ def raw_preprocess(raw, mains_freq=None):
     raw.resample(resample_freq)
     raw.filter(1.0, 100)
     return raw
-    
+
+def thresh_get_good_segments(raw, thresh=dict(mag=5000e-15)):
+    evts = mne.make_fixed_length_events(raw, duration=5.0)
+    rej_dict = thresh
+    epochs = mne.Epochs(raw, evts, reject=rej_dict, preload=True)
+    return epochs
+
+def z_get_good_segments(epochs, std_thresh=6):
+    '''Identify bad channels using standard deviation'''
+    epochs = epochs.copy()
+    z = zscore(np.std(epochs._data, axis=2), axis=0)
+    bad_epochs = np.where(z>std_thresh)[0]
+    epochs.drop(indices=bad_epochs)
+    return epochs
+           
 def calc_ica(raw, file_base=None, save=False, results_dir=None, seedval=0):
     '''Straightforward MNE ICA with MEGnet article specifications:
         infomax, 20 components'''
+    epochs = thresh_get_good_segments(raw)
+    epochs = z_get_good_segments(epochs)
     ica = ICA(n_components=20, random_state=seedval, method='infomax')
     ica.fit(raw)
     if save==True:
