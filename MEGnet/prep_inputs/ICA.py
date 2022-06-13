@@ -126,7 +126,7 @@ def raw_preprocess(raw, mains_freq=None):
 def thresh_get_good_segments(raw, thresh=dict(mag=5000e-15)):
     evts = mne.make_fixed_length_events(raw, duration=5.0)
     rej_dict = thresh
-    epochs = mne.Epochs(raw, evts, reject=rej_dict, preload=True)
+    epochs = mne.Epochs(raw, evts, reject=rej_dict, preload=True, baseline=None)
     return epochs
 
 def z_get_good_segments(epochs, std_thresh=6):
@@ -143,7 +143,7 @@ def calc_ica(raw, file_base=None, save=False, results_dir=None, seedval=0):
     epochs = thresh_get_good_segments(raw)
     epochs = z_get_good_segments(epochs)
     ica = ICA(n_components=20, random_state=seedval, method='infomax')
-    ica.fit(raw)
+    ica.fit(epochs)
     if save==True:
         out_filename = file_base + '_{}-ica.fif'.format(str(seedval))
         out_filename = os.path.join(results_dir, out_filename)
