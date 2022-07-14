@@ -338,9 +338,9 @@ if __name__ == '__main__':
     args = parser.parse_args()
     
     filename = args.filename
-    mains_freq = args.line_freq
+    mains_freq = float(args.line_freq)
     
-    main(filename, outbasename=None, mains_freq=60, 
+    main(filename, outbasename=None, mains_freq=[mains_freq], 
              save_preproc=True, save_ica=True, seedval=0,
              results_dir=args.results_dir)
 
