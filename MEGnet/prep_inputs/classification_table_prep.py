@@ -186,4 +186,4 @@ all_dat.groupby('sex').saccade_ct.plot(kind='hist', density=1, bins=5, stacked=F
 # =============================================================================
 # Write out final dataset
 # =============================================================================
-all_dat.to_csv('ICA_combined_participants.tsv', sep='\t')
+all_dat.to_csv('ICA_combined_participants.tsv', sep='\t', index=False) 
