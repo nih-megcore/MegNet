@@ -65,7 +65,7 @@ def get_inputs(dataset_info):
         Shape of (20, 120, 120, 3)  -- (ICA, X, Y, Color)
 
     '''
-    data_dir = dataset_info.dirname
+    data_dir = dataset_info['dirname']
     ts_fname = op.join(data_dir, 'ICATimeSeries.mat')
     ts_ = loadmat(ts_fname)['arrICATimeSeries'].T
     assert type(ts_) is np.ndarray
@@ -77,7 +77,9 @@ def get_inputs(dataset_info):
     assert spat_.shape == (20,180, 150, 3)
     
     spat_resized = spat_[:,25:-35,16:-14,:]
-    return ts_ , spat_resized
+    class_vec = make_classification_vector(dataset_info)
+    
+    return ts_ , spat_resized, class_vec
 
 def get_default_hcp():
     '''Load and return the hcp ICA dataset'''
@@ -104,11 +106,67 @@ def test_fPredict():
     assert_vals = [np.equal(i,j) for i,j in zip(correct_out, actual_out)]
     assert False not in assert_vals
 
+
+def _convert_strlist2intlist(strlist):
+    '''Hack to fix formatting'''
+    tmp_ = strlist.replace('"','').replace('[','').replace(']','').replace("'","").split(',')
+    if (tmp_=='') | (tmp_==[]) | (tmp_==['']):
+        return []
+    return [int(i) for i in tmp_]
+    
+
+def make_classification_vector(input_vec):
+    '''Convert the separate labelled columns into a 20X1 vector of labels'''
+    output = np.zeros(20, dtype=int) #Number of ICAs
+    VEOG =  _convert_strlist2intlist(input_vec.eyeblink)
+    HEOG = _convert_strlist2intlist(input_vec.Saccade)
+    EKG = _convert_strlist2intlist(input_vec.EKG)
+    output[VEOG] = 1 
+    output[HEOG] = 3
+    output[EKG] = 2
+    return output
+
+def extract_all_datasets(dframe):
+    '''
+    Loop over all datasets
+    Load the spatial, temporal, and classIDs into numpy matrcies
+
+    Parameters
+    ----------
+    dframe : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    '''
+    TS_test, SP_test, class_vec = [], [], []
+    for idx,input_vec in dframe.iterrows():
+        print(idx)
+        print(input_vec)
+        TS_tmp, SP_tmp, CLid_tmp = get_inputs(input_vec)
+        if TS_tmp.shape[1] < 62750:
+            continue
+        TS_test.append(TS_tmp[:,:62750])
+        SP_test.append(SP_tmp)
+        class_vec.append(CLid_tmp) 
+    return np.stack(TS_test), np.stack(SP_test), np.stack(class_vec)
+
+
+    
+# =============================================================================
+# 
+# =============================================================================
+
 from tensorflow import keras
 model_fname = '/home/jstout/src/MegNET2022/MEGnet/model/MEGnet_final_model.h5'
 kModel = keras.models.load_model(model_fname, compile=False)
 
-arrTimeSeries, arrSpatialMap = get_inputs(final.loc[0])
+
+
+arrTimeSeries, arrSpatialMap, class_ID = extract_all_datasets(final)
 
 #use the vote chunk prediction function to make a prediction on each input
 from MEGnet.label_ICA_components import fPredictChunkAndVoting
@@ -119,6 +177,27 @@ output = fPredictChunkAndVoting(kModel,
                                 intModelLen=15000, 
                                 intOverlap=3750)
 arrPredicionsVote, arrGTVote, arrPredictionsChunk, arrGTChunk = output
+
+
+
+x, y = final.apply(get_inputs)
+
+
+arrTimeSeries, arrSpatialMap = get_inputs(final.loc[0])
+
+
+NB_EPOCH = 20
+BATCH_SIZE = 128 
+VERBOSE = 1
+OPTIMIZER = Adam()  #switch to AdamW
+VALIDATION_SPLIT = 0.2
+
+kModel.compile(
+    loss='categorial_crossentropy', kModel.fit(
+
+kmodel.fit(
+
+score = model.evaluate(
     
     
     get_default_hcp()
