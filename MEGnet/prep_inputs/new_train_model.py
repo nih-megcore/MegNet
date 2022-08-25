@@ -193,10 +193,10 @@ assert class_ID.shape[0] == arrTimeSeries.shape[0]
 # arrTimeSeries, arrSpatialMap = get_inputs(final.loc[0])
 
 
-NB_EPOCH = 20
+NB_EPOCH = 40
 BATCH_SIZE = 128 
 VERBOSE = 1
-OPTIMIZER = Adam()  #switch to AdamW
+# OPTIMIZER = Adam()  #switch to AdamW
 VALIDATION_SPLIT = 0.2
 
 kModel.compile(
@@ -217,5 +217,5 @@ history = kModel.fit(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeS
 score = kModel.evaluate(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID)
     
     
-    
-    
+from matplotlib import pyplot as plt    
+plt.plot(history.history['accuracy'])    
