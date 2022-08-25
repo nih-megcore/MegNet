@@ -149,10 +149,11 @@ def extract_all_datasets(dframe):
         TS_tmp, SP_tmp, CLid_tmp = get_inputs(input_vec)
         if TS_tmp.shape[1] < 62750:
             continue
-        TS_test.append(TS_tmp[:,:62750])
+        TS_test.append(TS_tmp[:,:15000]) #62750])
         SP_test.append(SP_tmp)
         class_vec.append(CLid_tmp) 
-    return np.stack(TS_test), np.stack(SP_test), np.stack(class_vec)
+    return np.vstack(TS_test), np.vstack(SP_test), np.stack(class_vec).flatten()
+
 
 
     
@@ -161,29 +162,35 @@ def extract_all_datasets(dframe):
 # =============================================================================
 
 from tensorflow import keras
-model_fname = '/home/jstout/src/MegNET2022/MEGnet/model/MEGnet_final_model.h5'
+model_fname = op.join(MEGnet.__path__[0], 'model/MEGnet_final_model.h5')
 kModel = keras.models.load_model(model_fname, compile=False)
 
 
-
+#Get all 
 arrTimeSeries, arrSpatialMap, class_ID = extract_all_datasets(final)
-
-#use the vote chunk prediction function to make a prediction on each input
-from MEGnet.label_ICA_components import fPredictChunkAndVoting
-output = fPredictChunkAndVoting(kModel, 
-                                arrTimeSeries, 
-                                arrSpatialMap, 
-                                np.zeros((20,3)), #the code expects the Y values as it was used for performance, just put in zeros as a place holder.
-                                intModelLen=15000, 
-                                intOverlap=3750)
-arrPredicionsVote, arrGTVote, arrPredictionsChunk, arrGTChunk = output
+assert arrTimeSeries.shape[0] == arrSpatialMap.shape[0]
+assert class_ID.shape[0] == arrTimeSeries.shape[0]
 
 
+#class_ID = class_ID.flatten()  #Make a 1D vector
+#tmp = class_ID.flatten()
 
-x, y = final.apply(get_inputs)
+# #use the vote chunk prediction function to make a prediction on each input
+# from MEGnet.label_ICA_components import fPredictChunkAndVoting
+# output = fPredictChunkAndVoting(kModel, 
+#                                 arrTimeSeries, 
+#                                 arrSpatialMap, 
+#                                 np.zeros((20,3)), #the code expects the Y values as it was used for performance, just put in zeros as a place holder.
+#                                 intModelLen=15000, 
+#                                 intOverlap=3750)
+# arrPredicionsVote, arrGTVote, arrPredictionsChunk, arrGTChunk = output
 
 
-arrTimeSeries, arrSpatialMap = get_inputs(final.loc[0])
+
+# x, y = final.apply(get_inputs)
+
+
+# arrTimeSeries, arrSpatialMap = get_inputs(final.loc[0])
 
 
 NB_EPOCH = 20
@@ -193,14 +200,22 @@ OPTIMIZER = Adam()  #switch to AdamW
 VALIDATION_SPLIT = 0.2
 
 kModel.compile(
-    loss='categorial_crossentropy', kModel.fit(
-
-kmodel.fit(
-
-score = model.evaluate(
+    loss=keras.losses.SparseCategoricalCrossentropy(), #CategoricalCrossentropy(), 
+    optimizer='Adam',
+    #batch_size=BATCH_SIZE,
+    #epochs=NB_EPOCH,
+    # verbose=VERBOSE,
+    metrics=['accuracy']
+    )
     
     
-    get_default_hcp()
+history = kModel.fit(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID,
+                     batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE, validation_split=VALIDATION_SPLIT)
+
+
+
+score = kModel.evaluate(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID)
+    
     
     
     
