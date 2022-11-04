@@ -150,6 +150,43 @@ def calc_ica(raw, file_base=None, save=False, results_dir=None, seedval=0):
         ica.save(out_filename)
     return ica
 
+# =============================================================================
+# Neighborhood Correlation
+# =============================================================================
+from sklearn.neighbors import NearestNeighbors
+def get_sensor_locs(raw):
+    '''Return sensor coordinates'''
+    locs = np.array([i['loc'][0:3] for i in raw.info['chs']])
+    return locs
+
+def get_neighbors(raw=None, n_neighbors=6):
+    '''Enter the MNE raw object
+    Returns neighborhood index matrix with the first column being the index
+    of the input channel - and the rest of the columns being the neighbor 
+    indices.  n_neighbors defines the number of neighbors found'''
+    if raw!=None:
+        locs=get_sensor_locs(raw)
+    n_neighbors+=1  #Add 1 - because input chan is one of hte "neighbors" 
+        
+    nbrs = NearestNeighbors(n_neighbors=n_neighbors, algorithm='ball_tree')
+    nbrs.fit(locs)
+    distances, neighbor_mat = nbrs.kneighbors(locs) 
+    return distances, neighbor_mat
+    
+# def return_index(val, idx):
+#     return val[idx]
+
+def neighborhood_corr(raw, n_neighbors=6):
+    dists, neighbor_mat = get_neighbors(raw) 
+    corr_vec=np.zeros(neighbor_mat.shape[0])
+    for idx,row in enumerate(neighbor_mat):
+        tmp = (np.corrcoef(raw._data[row])[0,1:] / dists[idx][1:]) * dists[idx][1:].mean()
+        corr_vec[idx] = np.abs(tmp.mean())
+
+# =============================================================================
+#     
+# =============================================================================
+
 def sensor_pos2circle(raw, ica):
     '''
     Project the sensor positions to a unit circle and return positions

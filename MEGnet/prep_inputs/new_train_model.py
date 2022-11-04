@@ -154,7 +154,15 @@ def extract_all_datasets(dframe):
         class_vec.append(CLid_tmp) 
     return np.vstack(TS_test), np.vstack(SP_test), np.stack(class_vec).flatten()
 
-
+import tensorflow.keras.backend as K
+def get_f1(y_true, y_pred): #taken from old keras source code
+    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
+    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
+    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
+    precision = true_positives / (predicted_positives + K.epsilon())
+    recall = true_positives / (possible_positives + K.epsilon())
+    f1_val = 2*(precision*recall)/(precision+recall+K.epsilon())
+    return f1_val
 
     
 # =============================================================================
@@ -165,12 +173,50 @@ from tensorflow import keras
 model_fname = op.join(MEGnet.__path__[0], 'model/MEGnet_final_model.h5')
 kModel = keras.models.load_model(model_fname, compile=False)
 
-
 #Get all 
 arrTimeSeries, arrSpatialMap, class_ID = extract_all_datasets(final)
 assert arrTimeSeries.shape[0] == arrSpatialMap.shape[0]
 assert class_ID.shape[0] == arrTimeSeries.shape[0]
 
+
+NB_EPOCH = 20
+BATCH_SIZE = 1500 #  Approximately 12 or so examples per category in each batch
+VERBOSE = 1
+# OPTIMIZER = Adam()  #switch to AdamW
+VALIDATION_SPLIT = 0.2
+
+kModel.compile(
+    loss=keras.losses.SparseCategoricalCrossentropy(), #CategoricalCrossentropy(), 
+    optimizer='Adam',
+    #batch_size=BATCH_SIZE,
+    #epochs=NB_EPOCH,
+    # verbose=VERBOSE,
+    metrics=[get_f1,'accuracy']
+    )
+
+class_weights={0:1, 1:4, 2:4, 3:4}
+                   
+history = kModel.fit(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID,
+                     batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE, validation_split=VALIDATION_SPLIT,
+                     class_weight=class_weights)
+
+score = kModel.evaluate(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID)
+    
+    
+from matplotlib import pyplot as plt    
+plt.plot(history.history['accuracy'])    
+plt.plot(history.history['val_accuracy'])
+
+import pickle
+def save_weights_and_history(history):
+    with open('./trainHistoryDict', 'wb') as file_pi:
+        pickle.dump(history.history, file_pi)
+
+save_weights_and_history(history)
+kModel.save('Model.hd5')
+# =============================================================================
+# 
+# =============================================================================
 
 #class_ID = class_ID.flatten()  #Make a 1D vector
 #tmp = class_ID.flatten()
@@ -191,31 +237,3 @@ assert class_ID.shape[0] == arrTimeSeries.shape[0]
 
 
 # arrTimeSeries, arrSpatialMap = get_inputs(final.loc[0])
-
-
-NB_EPOCH = 40
-BATCH_SIZE = 128 
-VERBOSE = 1
-# OPTIMIZER = Adam()  #switch to AdamW
-VALIDATION_SPLIT = 0.2
-
-kModel.compile(
-    loss=keras.losses.SparseCategoricalCrossentropy(), #CategoricalCrossentropy(), 
-    optimizer='Adam',
-    #batch_size=BATCH_SIZE,
-    #epochs=NB_EPOCH,
-    # verbose=VERBOSE,
-    metrics=['accuracy']
-    )
-    
-    
-history = kModel.fit(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID,
-                     batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE, validation_split=VALIDATION_SPLIT)
-
-
-
-score = kModel.evaluate(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID)
-    
-    
-from matplotlib import pyplot as plt    
-plt.plot(history.history['accuracy'])    

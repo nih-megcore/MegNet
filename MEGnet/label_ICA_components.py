@@ -29,7 +29,7 @@ import tensorflow as tf
 from tensorflow import keras
 import tensorflow_addons as tfa
 sys.path.append('/home/jstout/src/MegNET_2020')
-# import megnet_utilities
+from MEGnet import megnet_utilities
 from MEGnet.megnet_utilities import fPredictChunkAndVoting
 
 def fPredictICA(strSubjectICAPath, strOutputDir=None, strOutputType='list', strModelPath = 'model/MEGnet_final_model.h5'):
@@ -38,8 +38,9 @@ def fPredictICA(strSubjectICAPath, strOutputDir=None, strOutputType='list', strM
     arrTimeSeries = scipy.io.loadmat(os.path.join(strSubjectICAPath,'ICATimeSeries.mat'))['arrICATimeSeries'].T
     arrSpatialMap = np.array([scipy.io.loadmat(os.path.join(strSubjectICAPath,f'component{i}.mat'))['array'] for i in range(1,21)])
     #crop the spatial map to remove additional pixels
-    arrSpatialMap = arrSpatialMap[:,30:-30,15:-15,:]
-
+    #arrSpatialMap = arrSpatialMap[:,30:-30,15:-15,:]
+    arrSpatialMap = arrSpatialMap[:,25:-35,16:-14,:]
+    #pylab.imshow(arrSpatialMap[1,:,:,:])
     #ensure the data is compatable
     try:
         assert arrTimeSeries.shape[0] == arrSpatialMap.shape[0] #the number of time series should be the same as the number of spatial maps
@@ -73,6 +74,7 @@ def fPredictICA(strSubjectICAPath, strOutputDir=None, strOutputType='list', strM
         np.savetxt(strOutputPath, to_return)
 
     return to_return
+
 
 if __name__ == "__main__":
     #load the arguments and print the inputted path
