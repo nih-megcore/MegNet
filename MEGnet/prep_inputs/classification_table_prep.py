@@ -21,7 +21,7 @@ all_sheets = pd.read_excel(class_xlsx_fname, sheet_name=None)
 ['ICA_1', 'results_mous', 'NIH_y', 'NIH_hvprotocol', 'results_camcan', 'results_camcan_batch2']
 
 # =============================================================================
-# # Dataset information 
+# # Dataset information from Manual Classification XLS file
 # =============================================================================
 # Scanner type: CTF, ELEKTA, 4D, KIT
 test = pd.DataFrame(columns=['SheetName','Scanner','Site','TaskType'])
@@ -31,7 +31,7 @@ test.loc[len(test)]=['NIH_y', 'CTF','NIH',None]
 test.loc[len(test)]=['NIH_hvprotocol', 'CTF','NIH',None]
 test.loc[len(test)]=['results_camcan', 'Elekta','Cambridge',None]
 test.loc[len(test)]=['results_camcan_batch2', 'Elekta','Cambridge',None]
-
+test.loc[len(test)]=['results_camcan_rest', 'Elekta','Cambridge',None]
 
 #Combine into 1 sheet
 sheet_list = []
@@ -129,6 +129,7 @@ ica_data['participant_id']=ica_data['participant_id'].apply(munge_subjid)
 
 all_dat = pd.merge(ica_data, demo_final, on=['participant_id','SheetName'])
 
+all_dat[['participant_id', 'type']]
 #Cleanup
 #Drop subjects without age
 all_dat=all_dat.dropna(subset=['age'])
@@ -136,7 +137,6 @@ all_dat['age']=all_dat['age'].astype(int)
 all_dat['age'].hist()
 
 
-## CHECK ON THE CODING for M/F
 
 #Change coding of M/F for hv protocol
 hv_m_idx = all_dat[(all_dat.SheetName=='NIH_hvprotocol') & (all_dat.sex==1)].index
