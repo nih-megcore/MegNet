@@ -39,22 +39,25 @@ for key,value in all_sheets.items():
     cols = test.columns.values
     if key=='results_camcan_batch2':
         key='results_camcan'
+    if key=='results_camcan_rest':
+        key='results_camcan'
     append_vals = test[test['SheetName']==key].values
     value.loc[:,cols]=append_vals[0]
     sheet_list.append(value)
 
 ica_data = pd.concat(sheet_list)
-
+ica_data.reset_index(drop=True, inplace=True)
 
 
 # =============================================================================
 # Get age/gender from participants.tsv
+# Download the all_demographics folder from biowulf enigma/bids/all_demographics
 # =============================================================================
-demo_dir = '/tmp/all_demo'
-# demo=dict(ICA_1='NIHstr_participants.tsv',
-#      results_mous='mous_participants.tsv',
-#      NIH_y='NIHyan_participants.tsv',
-#      NIH_hvprotocol='NIHhv_participants.tsv')
+demo_dir = '/tmp/all_demographics'
+demo=dict(ICA_1='NIHstr_participants.tsv',
+      results_mous='mous_participants.tsv',
+      NIH_y='NIHyan_participants.tsv',
+      NIH_hvprotocol='NIHhv_participants.tsv')
 
 def load_demo(fname):
     return pd.read_csv(op.join(demo_dir, fname), sep='\t')
@@ -69,7 +72,10 @@ tmp.rename(columns=dict(participant_age='age'), inplace=True)
 demo_list.append(tmp.loc[:,column_sel])
 
 #NIHy data
-
+tmp = load_demo('NIHyan_participants.tsv')
+tmp['SheetName']='NIH_y'
+tmp.rename(columns=dict(participant_age='age'), inplace=True)
+demo_list.append(tmp.loc[:,column_sel])
 
 #NIHhv data
 tmp = load_demo('NIHhv_participants.tsv')
@@ -87,6 +93,7 @@ tmp['SheetName']='results_camcan'
 demo_list.append(tmp.loc[:,column_sel])
 
 demo_final = pd.concat(demo_list)
+demo_final.reset_index(drop=True, inplace=True)
 
 
 
@@ -99,11 +106,25 @@ demo_final = pd.concat(demo_list)
 
 def munge_subjid(subj):
     subj=str(subj)
-    if subj[0:5]!='sub-':
+    if subj[0:4]!='sub-':
         subj='sub-'+subj
     return subj
 
+def fix_nihy_subjids(dframe):
+    'Specifically parse datasets from NIH_y - subject IDs need to conform'
+    for idx, row in dframe.iterrows():
+        if row.SheetName=='NIH_y':
+            print(f"Fixing ID {dframe.loc[idx]['participant_id']}")
+            if len(str(dframe.loc[idx]['participant_id']))==1:
+                dframe.loc[idx, 'participant_id']='sub-000'+str(dframe.loc[idx]['participant_id'])
+            elif  len(str(dframe.loc[idx,'participant_id']))==2:
+                dframe.loc[idx, 'participant_id']='sub-00'+str(dframe.loc[idx]['participant_id'])
+            else:
+                print(f'Error with {dframe.loc[idx]["participant_id"]}')
+    
+
 ica_data.rename(columns=dict(sub='participant_id'), inplace=True)
+fix_nihy_subjids(ica_data)
 ica_data['participant_id']=ica_data['participant_id'].apply(munge_subjid)
 
 all_dat = pd.merge(ica_data, demo_final, on=['participant_id','SheetName'])
