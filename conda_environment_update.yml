@@ -1,0 +1,16 @@
+name: MEGnet2022
+channels:
+  - nvidia
+  - conda-forge
+  - defaults
+dependencies:
+  - mne
+  - python=3.9
+  - ipython
+  - pip  
+  - tensorflow-gpu
+  - cudatoolkit-dev
+  - pip:
+    - git+https://github.com/mne-tools/mne-hcp.git
+    - tensorflow-addons
+

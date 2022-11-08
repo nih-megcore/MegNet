@@ -42,7 +42,6 @@ def get_type(dirname):
 
 datasets['subjid'] = datasets.dirname.apply(get_subjid)
 datasets['type'] = datasets.dirname.apply(get_type)
-# FIX! Needs to label smt datasets !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
 
 final = pd.merge(class_table, datasets, left_on=['participant_id', 'type'], right_on=['subjid','type'])
 
@@ -109,7 +108,7 @@ def test_fPredict():
 
 def _convert_strlist2intlist(strlist):
     '''Hack to fix formatting'''
-    tmp_ = strlist.replace('"','').replace('[','').replace(']','').replace("'","").split(',')
+    tmp_ = strlist.replace('"','').replace('[','').replace(' ','').replace(']','').replace("'","").split(',')
     if (tmp_=='') | (tmp_==[]) | (tmp_==['']):
         return []
     return [int(i) for i in tmp_]
@@ -164,17 +163,33 @@ def get_f1(y_true, y_pred): #taken from old keras source code
     f1_val = 2*(precision*recall)/(precision+recall+K.epsilon())
     return f1_val
 
+
+    
     
 # =============================================================================
 # 
 # =============================================================================
+np_arr_topdir = '/fast/MEGNET/Inputs'
+arrTS_fname = op.join(np_arr_topdir, 'arrTS.npy')
+arrSP_fname = op.join(np_arr_topdir, 'arrSP.npy')
+arrC_ID_fname = op.join(np_arr_topdir, 'arrC_ID.npy')
+
 
 from tensorflow import keras
 model_fname = op.join(MEGnet.__path__[0], 'model/MEGnet_final_model.h5')
 kModel = keras.models.load_model(model_fname, compile=False)
 
 #Get all 
-arrTimeSeries, arrSpatialMap, class_ID = extract_all_datasets(final)
+if not os.path.exists(np_arr_topdir):
+    arrTimeSeries, arrSpatialMap, class_ID = extract_all_datasets(final)
+    np.save(arrTS_fname, arrTimeSeries)
+    np.save(arrSP_fname, arrSpatialMap)
+    np.save(arrC_ID_fname, class_ID)    
+else:
+    arrTimeSeries = np.load(arrTS_fname)
+    arrSpatialMap = np.load(arrSP_fname)
+    class_ID = np.load(arrC_ID_fname)
+    
 assert arrTimeSeries.shape[0] == arrSpatialMap.shape[0]
 assert class_ID.shape[0] == arrTimeSeries.shape[0]
 
@@ -190,7 +205,7 @@ kModel.compile(
     optimizer='Adam',
     #batch_size=BATCH_SIZE,
     #epochs=NB_EPOCH,
-    # verbose=VERBOSE,
+    #verbose=VERBOSE,
     metrics=[get_f1,'accuracy']
     )
 
