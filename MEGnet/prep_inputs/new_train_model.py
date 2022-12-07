@@ -194,7 +194,7 @@ assert arrTimeSeries.shape[0] == arrSpatialMap.shape[0]
 assert class_ID.shape[0] == arrTimeSeries.shape[0]
 
 
-NB_EPOCH = 20
+NB_EPOCH = 20 # 15
 BATCH_SIZE = 1500 #  Approximately 12 or so examples per category in each batch
 VERBOSE = 1
 # OPTIMIZER = Adam()  #switch to AdamW
@@ -209,7 +209,7 @@ kModel.compile(
     metrics=[get_f1,'accuracy']
     )
 
-class_weights={0:1, 1:4, 2:4, 3:4}
+class_weights={0:1, 1:5, 2:5, 3:5}
                    
 history = kModel.fit(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID,
                      batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE, validation_split=VALIDATION_SPLIT,
@@ -221,6 +221,7 @@ score = kModel.evaluate(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTi
 from matplotlib import pyplot as plt    
 plt.plot(history.history['accuracy'])    
 plt.plot(history.history['val_accuracy'])
+plt.plot(history.history['get_f1'])
 
 import pickle
 def save_weights_and_history(history):
