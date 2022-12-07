@@ -95,21 +95,41 @@ def read_raw(filename):
     ext = os.path.splitext(filename)[-1]
     if ext == '.fif':
         raw = mne.io.read_raw_fif(filename, preload=True)
+        _bads=assess_bads(filename)
+        raw.info['bads'] = _bads['noisy'] + _bads['flat']
     elif ext == '.ds':
         raw = mne.io.read_raw_ctf(filename, preload=True, 
                                   system_clock='ignore', clean_names=True)
         if raw.compensation_grade != 3:
             raw.apply_gradient_compensation(3)
     #XXX Hack -- figure out the correct way to identify 4D/BTI data
-    #Do we need to do ref compensation calculation?
     elif filename[-4:]=='rfDC':
         raw = mne.io.read_raw_bti(filename, preload=True, 
                                   head_shape_fname=None)
-    #XXX Hack - Confirm KIT assignment
+    #XXX Hack - Confirm KIT assignment - sqd or con file
     elif ext == '.sqd':
         raw = mne.io.read_raw_kit(filename, preload=True)
     return raw
 
+def assess_bads(raw_fname, is_eroom=False):
+    '''Code sampled from MNE python website
+    https://mne.tools/dev/auto_tutorials/preprocessing/\
+        plot_60_maxwell_filtering_sss.html'''
+    from mne.preprocessing import find_bad_channels_maxwell
+    raw = mne.io.read_raw_fif(raw_fname)
+    # if raw.times[-1] > 60.0:
+    #     raw.crop(tmax=60)    
+    raw.info['bads'] = []
+    raw_check = raw.copy()
+    if is_eroom==False:
+        auto_noisy_chs, auto_flat_chs, auto_scores = find_bad_channels_maxwell(
+            raw_check, cross_talk=None, calibration=None,
+            return_scores=True, verbose=True)
+    else:
+        auto_noisy_chs, auto_flat_chs, auto_scores = find_bad_channels_maxwell(
+            raw_check, cross_talk=None, calibration=None,
+            return_scores=True, verbose=True, coord_frame="meg")        
+    return {'noisy':auto_noisy_chs, 'flat':auto_flat_chs}            
 
 def raw_preprocess(raw, mains_freq=None):
     '''
