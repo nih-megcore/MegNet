@@ -1,3 +1,18 @@
+# Updates
+## Create conda env  - update.yml uses a python 3.9 environment
+```
+git clone https://github.com/nih-megcore/MegNET_2020.git
+conda env create -n MegNET2020 --file MegNET_2020/conda_environment_update.yml
+```
+## Pip install package
+```
+conda activate MegNET2020
+pip install git+https://github.com/nih-megcore/MegNET_2020.git
+```
+
+______________________________________________________________
+
+
 # MEGnet source code.
 ### MEGnet: Automatic ICA-based artifact removal for MEG using spatiotemporal convolutional neural networks. 
 
