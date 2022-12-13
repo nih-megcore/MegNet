@@ -96,7 +96,7 @@ def read_raw(filename, do_assess_bads=False):
     if ext == '.fif':
         raw = mne.io.read_raw_fif(filename, preload=True)
         if do_assess_bads==True:
-            _bads=do_assess_bads(filename)
+            _bads=assess_bads(filename)
             raw.info['bads'] = _bads['noisy'] + _bads['flat']
     elif ext == '.ds':
         raw = mne.io.read_raw_ctf(filename, preload=True, 
