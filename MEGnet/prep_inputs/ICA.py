@@ -76,7 +76,7 @@ def make_head_outlines_new(sphere, pos, outlines, clip_origin):
     
     return outlines_dict
 
-def read_raw(filename, assess_bads=False):
+def read_raw(filename, do_assess_bads=False):
     '''
     Use the appropriate MNE io reader for the MEG type
     For CTF/.ds datasets, gradient compensation will be checked and applied if
@@ -95,8 +95,8 @@ def read_raw(filename, assess_bads=False):
     ext = os.path.splitext(filename)[-1]
     if ext == '.fif':
         raw = mne.io.read_raw_fif(filename, preload=True)
-        if assess_bads==True:
-            _bads=assess_bads(filename)
+        if do_assess_bads==True:
+            _bads=do_assess_bads(filename)
             raw.info['bads'] = _bads['noisy'] + _bads['flat']
     elif ext == '.ds':
         raw = mne.io.read_raw_ctf(filename, preload=True, 
@@ -346,7 +346,7 @@ def main(filename, outbasename=None, mains_freq=60,
             
     '''
     if filename_raw is not None:
-        tmp_raw = read_raw(filename_raw, assess_bads=True)
+        tmp_raw = read_raw(filename_raw, do_assess_bads=True)
         tmp_raw = raw_preprocess(tmp_raw, mains_freq)    
     raw = read_raw(filename)
     raw = raw_preprocess(raw, mains_freq)
