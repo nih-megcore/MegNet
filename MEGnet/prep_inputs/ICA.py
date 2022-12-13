@@ -76,7 +76,7 @@ def make_head_outlines_new(sphere, pos, outlines, clip_origin):
     
     return outlines_dict
 
-def read_raw(filename):
+def read_raw(filename, assess_bads=False):
     '''
     Use the appropriate MNE io reader for the MEG type
     For CTF/.ds datasets, gradient compensation will be checked and applied if
@@ -95,8 +95,9 @@ def read_raw(filename):
     ext = os.path.splitext(filename)[-1]
     if ext == '.fif':
         raw = mne.io.read_raw_fif(filename, preload=True)
-        _bads=assess_bads(filename)
-        raw.info['bads'] = _bads['noisy'] + _bads['flat']
+        if assess_bads==True:
+            _bads=assess_bads(filename)
+            raw.info['bads'] = _bads['noisy'] + _bads['flat']
     elif ext == '.ds':
         raw = mne.io.read_raw_ctf(filename, preload=True, 
                                   system_clock='ignore', clean_names=True)
@@ -311,7 +312,7 @@ def circle_plot(circle_pos=None, data=None, out_fname=None):
 
 def main(filename, outbasename=None, mains_freq=60, 
              save_preproc=False, save_ica=False, seedval=0,
-             results_dir=None):
+             results_dir=None, filename_raw=None):
     '''
         Perform all of the steps to preprocess the ica maps:
         Read raw data
@@ -325,6 +326,9 @@ def main(filename, outbasename=None, mains_freq=60,
         ----------
         
         filename : str
+            Path to file
+        filename_raw : str
+            Required for MEGIN datasets
             Path to file
         outbasename : str
             Required for 4D/BTI datasets
@@ -341,8 +345,13 @@ def main(filename, outbasename=None, mains_freq=60,
             Path to output directory
             
     '''
+    if filename_raw is not None:
+        tmp_raw = read_raw(filename_raw, assess_bads=True)
+        tmp_raw = raw_preprocess(tmp_raw, mains_freq)    
     raw = read_raw(filename)
     raw = raw_preprocess(raw, mains_freq)
+    raw.info['bads'] = tmp_raw.info['bads']
+    del tmp_raw
     
     #Set output names
     if outbasename != None:
@@ -390,6 +399,10 @@ if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()  
     parser.add_argument('-filename', help='Path to MEG dataset')
+    parser.add_argument('-filename_raw', help='''Required for MEGIN data.
+                        Path to the non-SSS data.  Do not use this data for 
+                        non-MEGIN data.
+                        ''')
     parser.add_argument('-results_dir', help='Path to save the results')
     parser.add_argument('-line_freq', help='{60,50} Hz - AC electric frequency')
     args = parser.parse_args()
@@ -398,6 +411,6 @@ if __name__ == '__main__':
     mains_freq = float(args.line_freq)
     
     main(filename, outbasename=None, mains_freq=[mains_freq], 
-             save_preproc=True, save_ica=True, seedval=0,
+             save_preproc=True, save_ica=True, seedval=0, filename_raw=args.filename_raw,
              results_dir=args.results_dir)
 
