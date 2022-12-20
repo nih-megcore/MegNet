@@ -4,6 +4,9 @@ import mne
 import hcp 
 import os, os.path as op
 import copy
+from MEGnet.prep_inputs.ICA import sensor_pos2circle
+from MEGnet.prep_inputs.ICA import circle_plot
+from scipy.io import savemat
 
 hcp_root = '/fast/OPEN/HCP/'
 subject = '100307'
@@ -39,8 +42,6 @@ data_dict = dict(subject=subject,
                  run_index=run,
                  hcp_path=hcp_root)
 
-
-                 
 unproc_raw_path = unprocessed_path(**data_dict)
 unproc_raw = mne.io.read_raw_bti(unproc_raw_path, head_shape_fname=None, 
                                  rename_channels=False, sort_by_ch_name=False)
@@ -67,9 +68,6 @@ ica_mat = hcp.read_ica(**data_dict)
 ica_mat['unmixing'].tolist()
 
 exclude=annot['ica']['ecg_eog_ic']
-#exclude = [i-1 for i in exclude]
-#hcp.preprocessing.apply_ica_hcp(raw, ica_mat, exclude)
-
 
 
 ch_names = ica_mat['topolabel'].tolist().tolist()
@@ -87,8 +85,8 @@ mixing = np.array(ica_mat['topo'].tolist())
 # raw._data /= 1e15
 
 ica_traces = np.dot(unmixing_matrix, raw._data[picks])
-import pylab
-pylab.plot(ica_traces[exclude,0:1000].T)
+# import pylab
+# pylab.plot(ica_traces[exclude,0:1000].T)
 
 # =============================================================================
 # Standard ICA
@@ -96,13 +94,14 @@ pylab.plot(ica_traces[exclude,0:1000].T)
 ica = mne.preprocessing.read_ica('/fast/results_ica/sub-ON02747_ses-01_task-rest_run-01_meg/sub-ON02747_ses-01_task-rest_run-01_meg_0-ica.fif')
 
 
-epo = mne.make_fixed_length_epochs(unproc_raw, preload=True)
+epo = mne.make_fixed_length_epochs(unproc_raw.copy().crop(0,100), preload=True)
 evk = epo.average()
 evk.pick_channels(ch_names)
 
 psuedo_tmax = evk.times[mixing.shape[1]]
 evk.crop(None, psuedo_tmax, include_tmax=False)
 evk._data[:,:mixing.shape[1]]=mixing
+
 
 # =============================================================================
 # Save the outputs
@@ -112,18 +111,18 @@ mag_idxs = mne.pick_types(raw.info, meg='mag')
 
 circle_pos = sensor_pos2circle(evk, evk)
 
-for comp in np.arange(0,ica.n_components,1):
-    data = np.dot(ica.mixing_matrix_[:,comp].T,
-                  ica.pca_components_[:ica.n_components_])
+for comp in np.arange(0,evk._data.shape[1],1):
+    data = evk._data[:,comp]     #np.dot(ica.mixing_matrix_[:,comp].T,
+                 # ica.pca_components_[:ica.n_components_])
     
     out_fname = f'{results_dir}/component{str(comp+1)}.png' #'{file_base}-ica-{str(comp)}.png'
-    circle_plot(circle_pos=circle_pos[mag_idxs], 
-                data=data[mag_idxs], 
+    circle_plot(circle_pos=circle_pos, 
+                data=data, 
                 out_fname=out_fname)
 
 # Save ICA timeseries as input for classification
 # Currently inputs to classification are matlab arrays
-ica_ts = ica.get_sources(raw)._data.T
+ica_ts = ica_traces #ica.get_sources(raw)._data.T
 outfname = f'{results_dir}/ICATimeSeries.mat' #'{file_base}-ica-ts.mat'
 savemat(outfname, 
         {'arrICATimeSeries':ica_ts})
