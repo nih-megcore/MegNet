@@ -113,6 +113,9 @@ def main(args):
     # =============================================================================
     # Topography only works with mags - get index for display
     # mag_idxs = mne.pick_types(raw.info, meg='mag')
+    _tmp = f'{unproc_raw_path.split("/")[-6]}_{unproc_raw_path.split("/")[-3]}'
+    _tmp = _tmp.replace('-','_')
+    out_subjdir = f'{results_dir}/{_tmp}'
     
     circle_pos = sensor_pos2circle(evk, evk)
     
@@ -120,7 +123,7 @@ def main(args):
         data = evk._data[:,comp]     #np.dot(ica.mixing_matrix_[:,comp].T,
                      # ica.pca_components_[:ica.n_components_])
         
-        out_fname = f'{results_dir}/component{str(comp+1)}.png' #'{file_base}-ica-{str(comp)}.png'
+        out_fname = f'{out_subjdir}/component{str(comp+1)}.png' #'{file_base}-ica-{str(comp)}.png'
         circle_plot(circle_pos=circle_pos, 
                     data=data, 
                     out_fname=out_fname)
@@ -128,7 +131,7 @@ def main(args):
     # Save ICA timeseries as input for classification
     # Currently inputs to classification are matlab arrays
     ica_ts = ica_traces #ica.get_sources(raw)._data.T
-    outfname = f'{results_dir}/ICATimeSeries.mat' #'{file_base}-ica-ts.mat'
+    outfname = f'{out_subjdir}/ICATimeSeries.mat' #'{file_base}-ica-ts.mat'
     savemat(outfname, 
             {'arrICATimeSeries':ica_ts})
 
