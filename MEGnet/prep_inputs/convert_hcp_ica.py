@@ -13,7 +13,10 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-hcp_root')
 parser.add_argument('-subject')
-parser.add_argument('-task')
+parser.add_argument('-task', 
+                    choices=['rest','task_motor','task_working_memory',
+                             'task_story_math'] #, 'noise_empty_room', 'noise_subject']
+                    )
 parser.add_argument('-run', type=int)
 parser.add_argument('-results_dir')
 args=parser.parse_args()
@@ -32,6 +35,12 @@ def unprocessed_path(subject=None,
     data_type=data_type.lower()
     if data_type=='rest':
         data_type='restin'
+    if data_type=='task_working_memory':
+        data_type='Wrkmem'
+    if data_type=='task_story_math':
+        data_type='StoryM'
+    if data_type=='task_motor':
+        data_type='Motor'
     data_type=data_type[0].upper()+data_type[1:]
     if data_type=='Storym':
         data_type='StoryM'
