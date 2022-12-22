@@ -116,6 +116,7 @@ def main(args):
     _tmp = f'{unproc_raw_path.split("/")[-6]}_{unproc_raw_path.split("/")[-3]}'
     _tmp = _tmp.replace('-','_')
     out_subjdir = f'{results_dir}/{_tmp}'
+    if not op.exists(out_subjdir): os.mkdir(out_subjdir)
     
     circle_pos = sensor_pos2circle(evk, evk)
     
