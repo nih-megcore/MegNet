@@ -348,10 +348,10 @@ def main(filename, outbasename=None, mains_freq=60,
     if filename_raw is not None:
         tmp_raw = read_raw(filename_raw, do_assess_bads=True)
         tmp_raw = raw_preprocess(tmp_raw, mains_freq)    
+        raw.info['bads'] = tmp_raw.info['bads']
+        del tmp_raw
     raw = read_raw(filename)
     raw = raw_preprocess(raw, mains_freq)
-    raw.info['bads'] = tmp_raw.info['bads']
-    del tmp_raw
     
     #Set output names
     if outbasename != None:
