@@ -345,13 +345,14 @@ def main(filename, outbasename=None, mains_freq=60,
             Path to output directory
             
     '''
+    raw = read_raw(filename)
+    raw = raw_preprocess(raw, mains_freq)
+
     if filename_raw is not None:
         tmp_raw = read_raw(filename_raw, do_assess_bads=True)
         tmp_raw = raw_preprocess(tmp_raw, mains_freq)    
         raw.info['bads'] = tmp_raw.info['bads']
         del tmp_raw
-    raw = read_raw(filename)
-    raw = raw_preprocess(raw, mains_freq)
     
     #Set output names
     if outbasename != None:
@@ -403,6 +404,7 @@ if __name__ == '__main__':
                         Path to the non-SSS data.  Do not use this data for 
                         non-MEGIN data.
                         ''')
+    parser.add_argument('-outbasename', help='basename for output directory')
     parser.add_argument('-results_dir', help='Path to save the results')
     parser.add_argument('-line_freq', help='{60,50} Hz - AC electric frequency')
     args = parser.parse_args()
@@ -410,7 +412,7 @@ if __name__ == '__main__':
     filename = args.filename
     mains_freq = float(args.line_freq)
     
-    main(filename, outbasename=None, mains_freq=[mains_freq], 
+    main(filename, outbasename=args.outbasename, mains_freq=[mains_freq], 
              save_preproc=True, save_ica=True, seedval=0, filename_raw=args.filename_raw,
              results_dir=args.results_dir)
 
