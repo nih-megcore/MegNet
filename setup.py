@@ -16,5 +16,6 @@ setuptools.setup(
         "License :: OSI Approved :: UNLICENSE",
         "Operating System :: Linux/Unix",
     ],
+    install_requires=['openpyxl'],
     scripts=['MEGnet/prep_inputs/ICA.py'],
 )
