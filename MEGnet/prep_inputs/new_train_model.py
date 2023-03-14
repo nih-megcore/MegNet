@@ -18,7 +18,7 @@ import numpy as np
 # Currently dropping smt datasets from CAMCAN - also need to add rest datasets
 # =============================================================================
 tmp=MEGnet.__path__[0]
-class_table_path = op.join(op.dirname(tmp), 'ICA_combined_participants.tsv')
+class_table_path = op.join(tmp, 'prep_inputs', 'training', 'ICA_combined_participants.tsv')
 class_table = pd.read_csv(class_table_path, sep='\t')
 if 'Unnamed: 0' in class_table.columns:
     class_table.drop('Unnamed: 0', axis=1, inplace=True)
@@ -27,7 +27,7 @@ if 'idx' in class_table.columns:
 
 
 
-dataset_path = '/fast/MEGNET/ICAs'
+dataset_path = op.join(MEGnet.__path__[0], 'prep_inputs','training','ICAs')
 dsets = glob.glob(op.join(dataset_path, '*_meg'))
 datasets = pd.DataFrame(dsets, columns=['dirname'])
 
@@ -169,10 +169,12 @@ def get_f1(y_true, y_pred): #taken from old keras source code
 # =============================================================================
 # 
 # =============================================================================
-np_arr_topdir = '/fast/MEGNET/Inputs'
+train_dir = op.join(MEGnet.__path__[0], 'prep_inputs','training')
+np_arr_topdir = op.join(train_dir, 'Inputs')
 arrTS_fname = op.join(np_arr_topdir, 'arrTS.npy')
 arrSP_fname = op.join(np_arr_topdir, 'arrSP.npy')
 arrC_ID_fname = op.join(np_arr_topdir, 'arrC_ID.npy')
+
 
 
 from tensorflow import keras
@@ -181,6 +183,9 @@ kModel = keras.models.load_model(model_fname, compile=False)
 
 #Get all 
 if not os.path.exists(np_arr_topdir):
+    if not op.exists(op.join(train_dir, 'ICAs')):
+                     raise BaseException('Need to run make_links.sh')
+    os.mkdir(np_arr_topdir)
     arrTimeSeries, arrSpatialMap, class_ID = extract_all_datasets(final)
     np.save(arrTS_fname, arrTimeSeries)
     np.save(arrSP_fname, arrSpatialMap)
