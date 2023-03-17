@@ -16,6 +16,11 @@ setuptools.setup(
         "License :: OSI Approved :: UNLICENSE",
         "Operating System :: Linux/Unix",
     ],
-    install_requires=['openpyxl'],
+    install_requires=['mne'],
     scripts=['MEGnet/prep_inputs/ICA.py'],
+    extras_require={
+        "training": ['openpyxl',
+            'smote-variants',
+'iterative-stratification  @ git+https://github.com/trent-b/iterative-stratification.git@master'],}
+#        }
 )
