@@ -264,7 +264,6 @@ if __name__=='__main__':
 
     print('\n---')
     main(kfolds=kfolds, foldNormFields=fields,
-         catFields=catFields, contFields=contFields,
-         output_path=output_path)
+         output_path=output_path, data_dframe=data)
 
 
