@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 
 import pandas as pd
+import os, os.path as op
 import numpy as np
 import pandas as pd
 import pickle
@@ -20,7 +21,68 @@ def foolist(astring):
     print(alist)
     return alist
 
-def main():
+def make_targetCol_vars(fields=None, dframe=None):
+    '''
+    From input dataframe (dframe) return a list of the categorical and 
+    continuous columns.  The fields must be a subset of the dframe columns
+
+    Parameters
+    ----------
+    fields : TYPE, optional
+        List of column entries. The default is None.
+    dframe : TYPE, optional
+        Dataframe from the tsv participants file. The default is None.
+
+    Returns
+    -------
+    targetCol_cat : list
+        categorical variables.
+    targetCol_con : list
+        continuous variables.
+
+    '''
+    targetCol_cat = []
+    targetCol_con = []
+    
+    catFields = dframe.select_dtypes(exclude='number').columns
+    contFields = dframe.select_dtypes(include='number').columns
+
+    for field in fields:
+        if field in catFields:
+            print(field +' is categorical')
+            targetCol_cat.append(field)
+        elif field in contFields:
+            print(field + ' is continuous')
+            targetCol_con.append(field)
+    return targetCol_cat, targetCol_con
+
+def main(kfolds=5, foldNormFields=None,
+         output_path=None, data_dframe=None):
+    '''
+    
+
+    Parameters
+    ----------
+    kfolds : int, optional
+        Number of folds for cross validation. The default is 5.
+    foldNormFields : list, optional
+        Subselected list to perform MultiLevel Stratification. The default is None.
+    data_dframe : pd.DataFrame
+        Dataframe from final compiled participants.tsv (merged across sites)
+        Reference prep_inputs/training/load_inputs.py
+    output_path : TYPE, optional
+        If None the function will return the kfold slices.  If given a path,
+        the function will save out the kfolds as a pkl file. The default is None.
+
+    Returns
+    -------
+    check : TYPE
+        DESCRIPTION.
+
+    '''
+    
+    targetCol_cat, targetCol_con = make_targetCol_vars(fields=foldNormFields, 
+                                                       dframe=data_dframe)
 
     # MultilabelStratifiedKFold allows to stratify data based on multiple labels
     # For MEGnet, use input fields by user of the default ['Scanner','Site','sex','age'] as labels 
@@ -36,22 +98,22 @@ def main():
     codeDict = {}
     count = -1
     if targetCol_con:
-        cont_Cat = np.zeros([data.shape[0], len(targetCol_con)])
+        cont_Cat = np.zeros([data_dframe.shape[0], len(targetCol_con)])
 
-    for col in data.columns:
+    for col in data_dframe.columns:
 
         if col in targetCol_cat: 
             
             tempDict = {}
             id = -1  
-            for l in data.loc[:,col].unique().tolist():
+            for l in data_dframe.loc[:,col].unique().tolist():
                 id +=1
                 tempDict[l] = id
             codeDict[col] = tempDict
 
         elif col in targetCol_con:
             count +=1
-            cont_ = data.loc[:,col].values
+            cont_ = data_dframe.loc[:,col].values
 
             pcnt = np.percentile(cont_,np.array([25,50,75])) # @@4 groups
             pcnt = np.insert(pcnt,0,cont_.min())
@@ -78,14 +140,14 @@ def main():
     # 2.1 | Targets
 
     targetCols = targetCol_cat + targetCol_con
-    y = np.zeros([data.shape[0], len(targetCols)]) # ['Scanner','Site','sex','age']
+    y = np.zeros([data_dframe.shape[0], len(targetCols)]) # ['Scanner','Site','sex','age']
     count = -1
     count2 = -1
     for col in targetCols:
         count +=1
         if col in targetCol_cat:       
             for key in codeDict[col].keys():
-                ind = np.where((data.loc[:,col]==key)==True)[0]
+                ind = np.where((data_dframe.loc[:,col]==key)==True)[0]
                 y[ind,count] = codeDict[col][key]
         else: # continous
             count2 +=1
@@ -94,7 +156,7 @@ def main():
     y = y.astype(int)
 
     # 2.2 | Model
-    X = data.idx.values
+    X = data_dframe.idx.values
 
     # 3 | The folds are made by preserving the percentage of samples for each label.
         # Check whether that's the case
@@ -115,15 +177,15 @@ def main():
     for kf in np.arange(kfolds):
         print('FOLD ' + str(kf) + '\n')
 
-        for col in data.columns:
+        for col in data_dframe.columns:
             
-            df_ = data.iloc[check[kf]['train_indx']] # subset of data frame with training indices
+            df_ = data_dframe.iloc[check[kf]['train_indx']] # subset of data frame with training indices
             
             if col in targetCols: #['Scanner','Site','sex','age']
                 print('-' + col)
                 cT = []
                 cS = []
-                for k,v in data.groupby(col): # loop over unique fields per column
+                for k,v in data_dframe.groupby(col): # loop over unique fields per column
                     cTotal = v.shape[0]
                     cT.append(cTotal) # get total number of examples  
                 
@@ -137,11 +199,11 @@ def main():
                     print('   ['+ k + '] Training (percent of data):',
                             100*(np.array(cS[ii])/np.array(cT[ii])))
 
-            df_ = data.iloc[check[kf]['test_indx']] # subset of original dataframe with test data indices
+            df_ = data_dframe.iloc[check[kf]['test_indx']] # subset of original dataframe with test data indices
             if col in targetCols:
                 cT = []
                 cS = []
-                for k,v in data.groupby(col):
+                for k,v in data_dframe.groupby(col):
                     cTotal = v.shape[0]
                     cT.append(cTotal)
                 
@@ -156,13 +218,16 @@ def main():
                             100*(np.array(cS[ii])/np.array(cT[ii])))
                 
                 
-        print('\n')     
-
-    # save check as pickle
-    print('saving results to ' + output_path+output_name)
-    f = open(output_path+output_name,"wb")# create a binary pickle file 
-    pickle.dump(check,f)# write pickle file
-    f.close()
+        print('\n') 
+        
+    if output_path!=None:
+        # save check as pickle
+        print('saving results to ' + output_path)
+        f = open(output_path,"wb")# create a binary pickle file 
+        pickle.dump(check,f)# write pickle file
+        f.close()
+    else:
+        return check
     
 
 
@@ -172,7 +237,7 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('-tsv', help='''Set full path (including filename) for tsv file''', required = True)
-    parser.add_argument('-kfold', type = int, help='''define number of folds for cross validation [kfold=5]''', required=False,
+    parser.add_argument('-kfolds', type = int, help='''define number of folds for cross validation [kfold=5]''', required=False,
                         default=5)
     parser.add_argument('-fields', help='''List of columns in tsv file to run stratification of cross-validated folds ['Scanner','Site','sex','age']''',
                         required=False, default=['Scanner','Site','sex','age'],
@@ -180,8 +245,8 @@ if __name__=='__main__':
 
     args = parser.parse_args()
     tsv = args.tsv
-    kfolds = args.kfold
-    fields = args.fields[0]
+    kfolds = args.kfolds
+    fields = args.fields
     print('fields', fields)
 
     print('---')
@@ -191,24 +256,15 @@ if __name__=='__main__':
     print('\n---')
     print('checking category of selected fields...')
 
-    catFields = data.select_dtypes(exclude='number').columns
-    contFields = data.select_dtypes(include='number').columns
+
     
-    targetCol_cat = []
-    targetCol_con = []
 
-    for field in fields:
-        if field in catFields:
-            print(field +' is categorical')
-            targetCol_cat.append(field)
-        elif field in contFields:
-            print(field + ' is continuous')
-            targetCol_con.append(field)
-
-    output_path = tsv[:-len(args.tsv.split('/')[-1])]
-    output_name = 'cv_' + str(kfolds) + '_FoldInd.pkl'
+    tmp = 'cv_' + str(kfolds) + '_FoldInd.pkl'
+    output_path = op.join(tsv[:-len(tsv.split('/')[-1])], tmp)
 
     print('\n---')
-    main()
+    main(kfolds=kfolds, foldNormFields=fields,
+         catFields=catFields, contFields=contFields,
+         output_path=output_path)
 
 

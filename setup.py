@@ -22,5 +22,4 @@ setuptools.setup(
         "training": ['openpyxl',
             'smote-variants',
 'iterative-stratification  @ git+https://github.com/trent-b/iterative-stratification.git@master'],}
-#        }
 )
