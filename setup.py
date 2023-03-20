@@ -21,5 +21,6 @@ setuptools.setup(
     extras_require={
         "training": ['openpyxl',
             'smote-variants',
-'iterative-stratification  @ git+https://github.com/trent-b/iterative-stratification.git@master'],}
+'iterative-stratification  @ git+https://github.com/trent-b/iterative-stratification.git@master',
+'tensorflow-addons[tensorflow]'],}
 )
