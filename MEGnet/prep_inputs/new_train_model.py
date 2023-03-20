@@ -44,6 +44,8 @@ datasets['subjid'] = datasets.dirname.apply(get_subjid)
 datasets['type'] = datasets.dirname.apply(get_type)
 
 final = pd.merge(class_table, datasets, left_on=['participant_id', 'type'], right_on=['subjid','type'])
+final=final.drop(index=82)
+
 
 def get_inputs(dataset_info):
     '''
@@ -178,6 +180,7 @@ arrC_ID_fname = op.join(np_arr_topdir, 'arrC_ID.npy')
 
 
 from tensorflow import keras
+import tensorflow_addons as tfa
 model_fname = op.join(MEGnet.__path__[0], 'model/MEGnet_final_model.h5')
 kModel = keras.models.load_model(model_fname, compile=False)
 
@@ -198,12 +201,21 @@ else:
 assert arrTimeSeries.shape[0] == arrSpatialMap.shape[0]
 assert class_ID.shape[0] == arrTimeSeries.shape[0]
 
+#Randomize input vectors before doing val split          <<<<       # Fix this must be a higherarchical shuffle
+rand_idx = list(range(arrTimeSeries.shape[0]))
+import random
+random.shuffle(rand_idx)  #This happens in place
+arrTimeSeries=arrTimeSeries[rand_idx,:]
+arrSpatialMap=arrSpatialMap[rand_idx,:,:]
+class_ID=class_ID[rand_idx]
 
 NB_EPOCH = 20 # 15
 BATCH_SIZE = 1500 #  Approximately 12 or so examples per category in each batch
 VERBOSE = 1
 # OPTIMIZER = Adam()  #switch to AdamW
-VALIDATION_SPLIT = 0.2
+VALIDATION_SPLIT = 0.20
+
+get_f1_met = tfa.metrics.F1Score(num_classes=4)#, threshold=0.5)  #This seems to errror out when used
 
 kModel.compile(
     loss=keras.losses.SparseCategoricalCrossentropy(), #CategoricalCrossentropy(), 
@@ -214,7 +226,7 @@ kModel.compile(
     metrics=[get_f1,'accuracy']
     )
 
-class_weights={0:1, 1:5, 2:5, 3:5}
+class_weights={0:1, 1:10, 2:10, 3:10}
                    
 history = kModel.fit(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID,
                      batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE, validation_split=VALIDATION_SPLIT,
