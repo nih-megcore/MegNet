@@ -303,7 +303,8 @@ kModel.compile(
 class_weights={0:1, 1:10, 2:10, 3:10}
 
 history=[]
-for sample in cv:
+for cv_num in cv.keys():
+    sample = cv[cv_num]
     tr, te = get_cv_npyArr(sample,
                         arrTimeSeries, 
                         arrSpatialMap,
