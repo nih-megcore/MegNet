@@ -29,6 +29,9 @@ if 'idx' in class_table.columns:
 
 dataset_path = op.join(MEGnet.__path__[0], 'prep_inputs','training','ICAs')
 dsets = glob.glob(op.join(dataset_path, '*_meg'))
+dsets += glob.glob(op.join(dataset_path, '*-sss'))
+dsets += glob.glob(op.join(dataset_path, '*_wrkmem'))
+dsets += glob.glob(op.join(dataset_path, '*_rest'))
 datasets = pd.DataFrame(dsets, columns=['dirname'])
 
 def get_subjid(dirname):
@@ -37,15 +40,22 @@ def get_subjid(dirname):
 
 def get_type(dirname):
     '''Extract the task type from the dataset name'''
-    return [i[5:] for i in op.basename(dirname).split('_') if i[0:4]=='task'][0]
+    if 'task' in dirname:
+        return [i[5:] for i in op.basename(dirname).split('_') if i[0:4]=='task'][0]
+    else:
+        return op.basename(dirname).split('_')[-1]
+        
     
 
 datasets['subjid'] = datasets.dirname.apply(get_subjid)
 datasets['type'] = datasets.dirname.apply(get_type)
 
-final = pd.merge(class_table, datasets, left_on=['participant_id', 'type'], right_on=['subjid','type'])
-final=final.drop(index=82)
-
+final = pd.merge(class_table, datasets, left_on=['participant_id', 'TaskType'], right_on=['subjid','type'])
+dropidx=final.loc[(final.participant_id=='sub-ON12688') & (final.type_y =='rest')].index
+final = final.drop(index=dropidx)
+dropidx = final[final.TaskType=='artifact'].index
+final = final.drop(index=dropidx)
+final.reset_index(inplace=True)
 
 def get_inputs(dataset_info):
     '''
@@ -180,7 +190,7 @@ arrC_ID_fname = op.join(np_arr_topdir, 'arrC_ID.npy')
 
 
 from tensorflow import keras
-import tensorflow_addons as tfa
+# import tensorflow_addons as tfa
 model_fname = op.join(MEGnet.__path__[0], 'model/MEGnet_final_model.h5')
 kModel = keras.models.load_model(model_fname, compile=False)
 
@@ -200,6 +210,7 @@ else:
     
 assert arrTimeSeries.shape[0] == arrSpatialMap.shape[0]
 assert class_ID.shape[0] == arrTimeSeries.shape[0]
+assert final.__len__() == int(arrTimeSeries.shape[0]/20)
 
 #Randomize input vectors before doing val split          <<<<       # Fix this must be a higherarchical shuffle
 rand_idx = list(range(arrTimeSeries.shape[0]))
@@ -209,8 +220,8 @@ arrTimeSeries=arrTimeSeries[rand_idx,:]
 arrSpatialMap=arrSpatialMap[rand_idx,:,:]
 class_ID=class_ID[rand_idx]
 
-NB_EPOCH = 20 # 15
-BATCH_SIZE = 1500 #  Approximately 12 or so examples per category in each batch
+NB_EPOCH = 30 # 15
+BATCH_SIZE = 500 #  Approximately 12 or so examples per category in each batch
 VERBOSE = 1
 # OPTIMIZER = Adam()  #switch to AdamW
 VALIDATION_SPLIT = 0.20
