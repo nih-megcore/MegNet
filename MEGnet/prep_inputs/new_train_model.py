@@ -55,7 +55,7 @@ dropidx=final.loc[(final.participant_id=='sub-ON12688') & (final.type_y =='rest'
 final = final.drop(index=dropidx)
 dropidx = final[final.TaskType=='artifact'].index
 final = final.drop(index=dropidx)
-final.reset_index(inplace=True)
+final.reset_index(inplace=True, drop=True)
 
 def get_inputs(dataset_info):
     '''
@@ -212,13 +212,76 @@ assert arrTimeSeries.shape[0] == arrSpatialMap.shape[0]
 assert class_ID.shape[0] == arrTimeSeries.shape[0]
 assert final.__len__() == int(arrTimeSeries.shape[0]/20)
 
+# =============================================================================
+# Cross Validation
+# =============================================================================
+crossval_cols = ['Site', 'TaskType', 'Scanner', 'age', 'sex']
+from MEGnet.prep_inputs import cvSplits
+final['idx']=final.index
+cv = cvSplits.main(kfolds=5, foldNormFields=crossval_cols, data_dframe=final)
+
+#Use the following function to match the CV to the ICAs
+def make_ica_subj_encoding(arrTimeSeries):
+    '''Expand the coding for each subject by 20 - to match the number of ICAs'''
+    lenval = arrTimeSeries.shape[0]
+    idxs = range(lenval)
+    test = [[i]*20 for i in range(int(lenval/20))]
+    test = np.hstack(test)
+    assert len(test) == len(idxs)
+    return np.array([idxs, test]).T
+
+def get_cv_npyArr(sample,
+                    arrTimeSeries, 
+                    arrSpatialMap,
+                    class_ID
+                    ):
+    '''
+    Return the numpy array for the test / train slice
+    
+
+    Parameters
+    ----------
+    sample : array of ints
+        Cross validation sample of the dataframe indexes.
+    outcode : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    '''
+    cv_tr = sample['train_indx']
+    cv_te = sample['test_indx']
+    
+    #ICA number is in column 0 and subject index is column2
+    ica_code = make_ica_subj_encoding(arrTimeSeries)
+    
+    #Probably slow - but will work
+    tr_idx = [ica_code[ica_code[:,1]==i] for i in cv_tr]
+    tr_idx = np.vstack(tr_idx)
+    
+    te_idx = [ica_code[ica_code[:,1]==i] for i in cv_te]
+    te_idx = np.vstack(te_idx)
+    
+    #Subsample the cv
+    tr_sub = ica_code[tr_idx[:,0],0]
+    te_sub = ica_code[te_idx[:,0],0]
+    train={'sp':arrSpatialMap[tr_sub,:,:,:],
+               'ts':arrTimeSeries[tr_sub,:],
+               'clID':class_ID[tr_sub]}
+    test={'sp':arrSpatialMap[te_sub,:,:,:],
+               'ts':arrTimeSeries[te_sub,:],
+               'clID':class_ID[te_sub]}
+    return train, test
+
 #Randomize input vectors before doing val split          <<<<       # Fix this must be a higherarchical shuffle
-rand_idx = list(range(arrTimeSeries.shape[0]))
-import random
-random.shuffle(rand_idx)  #This happens in place
-arrTimeSeries=arrTimeSeries[rand_idx,:]
-arrSpatialMap=arrSpatialMap[rand_idx,:,:]
-class_ID=class_ID[rand_idx]
+# rand_idx = list(range(arrTimeSeries.shape[0]))  #!!! Fix
+# import random
+# random.shuffle(rand_idx)  #This happens in place
+# arrTimeSeries=arrTimeSeries[rand_idx,:]
+# arrSpatialMap=arrSpatialMap[rand_idx,:,:]
+# class_ID=class_ID[rand_idx]
 
 NB_EPOCH = 30 # 15
 BATCH_SIZE = 500 #  Approximately 12 or so examples per category in each batch
@@ -238,10 +301,22 @@ kModel.compile(
     )
 
 class_weights={0:1, 1:10, 2:10, 3:10}
-                   
-history = kModel.fit(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID,
-                     batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE, validation_split=VALIDATION_SPLIT,
-                     class_weight=class_weights)
+
+history=[]
+for sample in cv:
+    tr, te = get_cv_npyArr(sample,
+                        arrTimeSeries, 
+                        arrSpatialMap,
+                        class_ID
+                        )
+                       
+    history_tmp = kModel.fit(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID,
+                         batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE, validation_split=VALIDATION_SPLIT,
+                         class_weight=class_weights)
+    history.append(history_tmp)
+
+
+
 
 score = kModel.evaluate(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID)
     
