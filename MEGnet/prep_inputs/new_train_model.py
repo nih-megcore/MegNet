@@ -13,6 +13,7 @@ import os
 import glob
 from scipy.io import loadmat
 import numpy as np
+import copy
 
 # =============================================================================
 # Currently dropping smt datasets from CAMCAN - also need to add rest datasets
@@ -36,7 +37,10 @@ datasets = pd.DataFrame(dsets, columns=['dirname'])
 
 def get_subjid(dirname):
     tmp = op.basename(dirname)
-    return tmp.split('_')[0]
+    tmp=tmp.split('_')[0]
+    if tmp[0:4]!='sub-':
+        tmp='sub-'+tmp
+    return tmp
 
 def get_type(dirname):
     '''Extract the task type from the dataset name'''
@@ -218,7 +222,6 @@ assert final.__len__() == int(arrTimeSeries.shape[0]/20)
 crossval_cols = ['Site', 'TaskType', 'Scanner', 'age', 'sex']
 from MEGnet.prep_inputs import cvSplits
 final['idx']=final.index
-cv = cvSplits.main(kfolds=5, foldNormFields=crossval_cols, data_dframe=final)
 
 #Use the following function to match the CV to the ICAs
 def make_ica_subj_encoding(arrTimeSeries):
@@ -230,10 +233,11 @@ def make_ica_subj_encoding(arrTimeSeries):
     assert len(test) == len(idxs)
     return np.array([idxs, test]).T
 
-def get_cv_npyArr(sample,
-                    arrTimeSeries, 
-                    arrSpatialMap,
-                    class_ID
+def get_cv_npyArr(sample=None,
+                  holdout=None,
+                    arrTimeSeries=None, 
+                    arrSpatialMap=None,
+                    class_ID=None
                     ):
     '''
     Return the numpy array for the test / train slice
@@ -251,45 +255,74 @@ def get_cv_npyArr(sample,
     None.
 
     '''
-    cv_tr = sample['train_indx']
-    cv_te = sample['test_indx']
+
     
     #ICA number is in column 0 and subject index is column2
     ica_code = make_ica_subj_encoding(arrTimeSeries)
     
-    #Probably slow - but will work
-    tr_idx = [ica_code[ica_code[:,1]==i] for i in cv_tr]
-    tr_idx = np.vstack(tr_idx)
-    
-    te_idx = [ica_code[ica_code[:,1]==i] for i in cv_te]
-    te_idx = np.vstack(te_idx)
-    
-    #Subsample the cv
-    tr_sub = ica_code[tr_idx[:,0],0]
-    te_sub = ica_code[te_idx[:,0],0]
-    train={'sp':arrSpatialMap[tr_sub,:,:,:],
-               'ts':arrTimeSeries[tr_sub,:],
-               'clID':class_ID[tr_sub]}
-    test={'sp':arrSpatialMap[te_sub,:,:,:],
-               'ts':arrTimeSeries[te_sub,:],
-               'clID':class_ID[te_sub]}
-    return train, test
+    if holdout is None:
+        cv_tr = sample['train_indx']
+        cv_te = sample['test_indx']
+        
+        #Probably slow - but will work
+        tr_idx = [ica_code[ica_code[:,1]==i] for i in cv_tr]
+        tr_idx = np.vstack(tr_idx)
+        
+        te_idx = [ica_code[ica_code[:,1]==i] for i in cv_te]
+        te_idx = np.vstack(te_idx)
+        
+        #Subsample the cv
+        tr_sub = ica_code[tr_idx[:,0],0]
+        te_sub = ica_code[te_idx[:,0],0]
+        train={'sp':arrSpatialMap[tr_sub,:,:,:],
+                   'ts':arrTimeSeries[tr_sub,:],
+                   'clID':class_ID[tr_sub]}
+        test={'sp':arrSpatialMap[te_sub,:,:,:],
+                   'ts':arrTimeSeries[te_sub,:],
+                   'clID':class_ID[te_sub]}
+        return train, test
+    else:
+        cv_hold = holdout
+        hold_idx = [ica_code[ica_code[:,1]==i] for i in cv_hold]
+        hold_idx = np.vstack(hold_idx)
+        hold_sub = ica_code[hold_idx[:,0],0]
+        
+        #tt_array is the test/train array - excluding the holdout
+        tmp_full_array = copy.deepcopy(ica_code)
+        tt_array = np.delete(tmp_full_array, hold_sub, axis=0)
+        # not_hold_idx = [ica_code[ica_code[:,1]==i] for i in tt_array]
+        # not_hold_idx = 
+        tt_sub = tt_array[:,0]
+        
+        hold={'sp':arrSpatialMap[hold_sub,:,:,:],
+              'ts':arrTimeSeries[hold_sub,:],
+              'clID':class_ID[hold_sub]}
+        test_train={'sp':arrSpatialMap[tt_sub,:,:,:],
+               'ts':arrTimeSeries[tt_sub,:],
+               'clID':class_ID[tt_sub]}
+        return hold, test_train
+        
+#Create holdout
+tmp_holdout = cvSplits.main(kfolds=5, foldNormFields=crossval_cols, data_dframe=final)
+holdout_dframe_idxs = tmp_holdout[0]['test_indx']  #First CV test set ~20% of data
+hold, tsttr = get_cv_npyArr(sample=None,
+                                          holdout=holdout_dframe_idxs,
+                                            arrTimeSeries=arrTimeSeries, 
+                                            arrSpatialMap=arrSpatialMap,
+                                            class_ID=class_ID
+                                            )
+hold_sp, hold_ts, hold_clID = hold['sp'], hold['ts'], hold['clID']
+tsttr_sp, tsttr_ts, tsttr_clID = tsttr['sp'], tsttr['ts'], tsttr['clID']
 
-#Randomize input vectors before doing val split          <<<<       # Fix this must be a higherarchical shuffle
-# rand_idx = list(range(arrTimeSeries.shape[0]))  #!!! Fix
-# import random
-# random.shuffle(rand_idx)  #This happens in place
-# arrTimeSeries=arrTimeSeries[rand_idx,:]
-# arrSpatialMap=arrSpatialMap[rand_idx,:,:]
-# class_ID=class_ID[rand_idx]
 
-NB_EPOCH = 30 # 15
-BATCH_SIZE = 500 #  Approximately 12 or so examples per category in each batch
+
+NB_EPOCH = 50 # 15
+BATCH_SIZE = 300 #  Approximately 12 or so examples per category in each batch
 VERBOSE = 1
 # OPTIMIZER = Adam()  #switch to AdamW
 VALIDATION_SPLIT = 0.20
 
-get_f1_met = tfa.metrics.F1Score(num_classes=4)#, threshold=0.5)  #This seems to errror out when used
+#get_f1_met = tfa.metrics.F1Score(num_classes=4)#, threshold=0.5)  #This seems to errror out when used
 
 kModel.compile(
     loss=keras.losses.SparseCategoricalCrossentropy(), #CategoricalCrossentropy(), 
@@ -303,16 +336,21 @@ kModel.compile(
 class_weights={0:1, 1:10, 2:10, 3:10}
 
 history=[]
+tt_final = final.drop(index=holdout_dframe_idxs)
+tt_final.reset_index(inplace=True, drop=True)
+cv = cvSplits.main(kfolds=10, foldNormFields=crossval_cols, data_dframe=tt_final)
 for cv_num in cv.keys():
     sample = cv[cv_num]
     tr, te = get_cv_npyArr(sample,
-                        arrTimeSeries, 
-                        arrSpatialMap,
-                        class_ID
+                          holdout=None,
+                          arrTimeSeries=tsttr_ts,  #Subsampled array
+                          arrSpatialMap=tsttr_sp, #Subsampled array
+                          class_ID=tsttr_clID,  #Subsampled array
                         )
                        
-    history_tmp = kModel.fit(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID,
-                         batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE, validation_split=VALIDATION_SPLIT,
+    history_tmp = kModel.fit(x=dict(spatial_input=tr['sp'], temporal_input=tr['ts']), y=tr['clID'],
+                         batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE,   #validation_split=VALIDATION_SPLIT,
+                         validation_data=(dict(spatial_input=te['sp'], temporal_input=te['ts']), te['clID']),
                          class_weight=class_weights)
     history.append(history_tmp)
 
