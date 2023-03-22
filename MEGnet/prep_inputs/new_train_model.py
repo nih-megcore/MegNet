@@ -356,9 +356,8 @@ for cv_num in cv.keys():
 
 
 
-
-score = kModel.evaluate(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID)
-    
+# score = kModel.evaluate(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID)
+score = kModel.evaluate(x=dict(spatial_input=hold_sp, temporal_input=hold_ts), y=hold_clID)    
     
 from matplotlib import pyplot as plt    
 plt.plot(history.history['accuracy'])    
