@@ -340,6 +340,18 @@ def make_smote_sample(SP, class_vec):
     X_smote = X_smote.reshape([X_smote.shape[0], spShape[1], spShape[2], spShape[3]])
     return X_smote, y_smote
 
+def make_dual_smote_sample(SP, TS, class_vec, seed=0):
+    spShape=SP.shape
+    test_sp = SP.reshape([spShape[0], -1])
+    test_ts = TS
+    
+    sm = SMOTE(random_state=seed)
+    Xsp_smote, y_sp_smote = sm.fit_resample(test_sp, class_vec)
+    Xts_smote, y_ts_smote = sm.fit_resample(test_ts, class_vec)
+    assert np.alltrue([i==j for i,j in zip(y_sp_smote, y_ts_smote)])
+    Xsp_smote = Xsp_smote.reshape([Xsp_smote.shape[0], spShape[1], spShape[2], spShape[3]])
+    return Xsp_smote, Xts_smote, y_sp_smote
+
 
 
 
@@ -376,8 +388,10 @@ for cv_num in cv.keys():
                           arrSpatialMap=tsttr_sp, #Subsampled array
                           class_ID=tsttr_clID,  #Subsampled array
                         )
+    
+    SP_, TS_ , CL_ = make_dual_smote_sample(tr['sp'],tr['ts'], tr['clID'], seed=int(cv_num))  
                        
-    history_tmp = kModel.fit(x=dict(spatial_input=tr['sp'], temporal_input=tr['ts']), y=tr['clID'],
+    history_tmp = kModel.fit(x=dict(spatial_input=SP_, temporal_input=TS_), y=CL_,
                          batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE,   #validation_split=VALIDATION_SPLIT,
                          validation_data=(dict(spatial_input=te['sp'], temporal_input=te['ts']), te['clID']),
                          class_weight=class_weights)
