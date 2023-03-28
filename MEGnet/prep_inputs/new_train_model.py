@@ -15,9 +15,7 @@ from scipy.io import loadmat
 import numpy as np
 import copy
 
-# =============================================================================
-# Currently dropping smt datasets from CAMCAN - also need to add rest datasets
-# =============================================================================
+
 tmp=MEGnet.__path__[0]
 class_table_path = op.join(tmp, 'prep_inputs', 'training', 'ICA_combined_participants.tsv')
 class_table = pd.read_csv(class_table_path, sep='\t')
@@ -33,6 +31,8 @@ dsets = glob.glob(op.join(dataset_path, '*_meg'))
 dsets += glob.glob(op.join(dataset_path, '*-sss'))
 dsets += glob.glob(op.join(dataset_path, '*_wrkmem'))
 dsets += glob.glob(op.join(dataset_path, '*_rest'))
+dsets += glob.glob(op.join(dataset_path, '*_AD'))
+dsets += glob.glob(op.join(dataset_path, '*_NY'))
 datasets = pd.DataFrame(dsets, columns=['dirname'])
 
 def get_subjid(dirname):
@@ -48,11 +48,17 @@ def get_type(dirname):
         return [i[5:] for i in op.basename(dirname).split('_') if i[0:4]=='task'][0]
     else:
         return op.basename(dirname).split('_')[-1]
-        
+
+def clean_KIT(tasktype):
+    if tasktype in  ['AD','NY']:
+        return 'rest'
+    else:
+        return tasktype
     
 
 datasets['subjid'] = datasets.dirname.apply(get_subjid)
 datasets['type'] = datasets.dirname.apply(get_type)
+datasets['type'] = datasets.type.apply(clean_KIT)
 
 final = pd.merge(class_table, datasets, left_on=['participant_id', 'TaskType'], right_on=['subjid','type'])
 dropidx=final.loc[(final.participant_id=='sub-ON12688') & (final.type_y =='rest')].index
@@ -162,11 +168,15 @@ def extract_all_datasets(dframe):
         print(idx)
         print(input_vec)
         TS_tmp, SP_tmp, CLid_tmp = get_inputs(input_vec)
-        if TS_tmp.shape[1] < 62750:
-            continue
+        failed=[]
+        if TS_tmp.shape[1] < 40000: 
+        # if TS_tmp.shape[1] < 62750:
+            failed.append(input_vec) #continue
         TS_test.append(TS_tmp[:,:15000]) #62750])
         SP_test.append(SP_tmp)
         class_vec.append(CLid_tmp) 
+        for i in failed:
+            print(i)
     return np.vstack(TS_test), np.vstack(SP_test), np.stack(class_vec).flatten()
 
 import tensorflow.keras.backend as K
@@ -314,10 +324,28 @@ hold, tsttr = get_cv_npyArr(sample=None,
 hold_sp, hold_ts, hold_clID = hold['sp'], hold['ts'], hold['clID']
 tsttr_sp, tsttr_ts, tsttr_clID = tsttr['sp'], tsttr['ts'], tsttr['clID']
 
+# =============================================================================
+# SMOTE
+# from smote_variants import LLE_SMOTE
+# from smote_variants import MWMOTE
+#oversampler= smote_variants.LLE_SMOTE()
+#X_samp, y_samp= oversampler.sample(X, y)
+# =============================================================================
+from imblearn.over_sampling import SMOTE
+def make_smote_sample(SP, class_vec):
+    spShape=SP.shape
+    sm = SMOTE(random_state=42)
+    test = SP.reshape([spShape[0], -1])  #Flatten X/Y/image depth
+    X_smote, y_smote = sm.fit_resample(test, class_vec) 
+    X_smote = X_smote.reshape([X_smote.shape[0], spShape[1], spShape[2], spShape[3]])
+    return X_smote, y_smote
 
 
-NB_EPOCH = 50 # 15
-BATCH_SIZE = 300 #  Approximately 12 or so examples per category in each batch
+
+
+
+NB_EPOCH = 7 # 15
+BATCH_SIZE = 1000 #  Approximately 12 or so examples per category in each batch
 VERBOSE = 1
 # OPTIMIZER = Adam()  #switch to AdamW
 VALIDATION_SPLIT = 0.20
@@ -333,12 +361,13 @@ kModel.compile(
     metrics=[get_f1,'accuracy']
     )
 
-class_weights={0:1, 1:10, 2:10, 3:10}
+class_weights={0:1, 1:1, 2:1, 3:1}
+# class_weights={0:1, 1:10, 2:10, 3:10}
 
 history=[]
 tt_final = final.drop(index=holdout_dframe_idxs)
 tt_final.reset_index(inplace=True, drop=True)
-cv = cvSplits.main(kfolds=10, foldNormFields=crossval_cols, data_dframe=tt_final)
+cv = cvSplits.main(kfolds=8, foldNormFields=crossval_cols, data_dframe=tt_final)
 for cv_num in cv.keys():
     sample = cv[cv_num]
     tr, te = get_cv_npyArr(sample,
@@ -360,9 +389,11 @@ for cv_num in cv.keys():
 score = kModel.evaluate(x=dict(spatial_input=hold_sp, temporal_input=hold_ts), y=hold_clID)    
     
 from matplotlib import pyplot as plt    
-plt.plot(history.history['accuracy'])    
-plt.plot(history.history['val_accuracy'])
-plt.plot(history.history['get_f1'])
+for i in range(0,10):
+    # i=0
+    plt.plot(history[i].history['accuracy'])    
+    plt.plot(history[i].history['val_accuracy'])
+    plt.plot(history[i].history['get_f1'])
 
 import pickle
 def save_weights_and_history(history):
@@ -375,6 +406,13 @@ kModel.save('Model.hd5')
 # 
 # =============================================================================
 
+sc_=[]
+for i in range(0,10):
+    tmp_ = history[i].model.evaluate(x=dict(spatial_input=hold_sp, temporal_input=hold_ts), y=hold_clID)
+    sc_.append(tmp_)
+
+from sklearn.metrics import confusion_matrix
+matrix = confusion_matrix(hold_clID, y_pred.argmax(axis=1))
 #class_ID = class_ID.flatten()  #Make a 1D vector
 #tmp = class_ID.flatten()
 
@@ -394,3 +432,6 @@ kModel.save('Model.hd5')
 
 
 # arrTimeSeries, arrSpatialMap = get_inputs(final.loc[0])
+
+
+
