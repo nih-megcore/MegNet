@@ -13,4 +13,5 @@ dependencies:
   - pip:
     - git+https://github.com/mne-tools/mne-hcp.git
     - tensorflow-addons
+    - git+https://github.com/nih-megcore/MegNET_2020.git
 
