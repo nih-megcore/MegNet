@@ -66,7 +66,6 @@ final = final.drop(index=dropidx)
 dropidx = final[final.TaskType=='artifact'].index
 final = final.drop(index=dropidx)
 final.reset_index(inplace=True, drop=True)
-final['key']=range(len(final)) #Set the key to index data
 
 def get_inputs(dataset_info):
     '''
@@ -164,7 +163,7 @@ def extract_all_datasets(dframe):
         DESCRIPTION.
 
     '''
-    TS_test, SP_test, class_vec = dict(), [], []
+    TS_test, SP_test, class_vec = [], [], []
     for idx,input_vec in dframe.iterrows():
         print(idx)
         print(input_vec)
@@ -173,16 +172,12 @@ def extract_all_datasets(dframe):
         if TS_tmp.shape[1] < 40000: 
         # if TS_tmp.shape[1] < 62750:
             failed.append(input_vec) #continue
-        # TS_test.append(TS_tmp[:,:15000]) #62750])
-        TS_test[input_vec['key']]=TS_tmp
-        
+        TS_test.append(TS_tmp[:,:15000]) #62750])
         SP_test.append(SP_tmp)
         class_vec.append(CLid_tmp) 
         for i in failed:
             print(i)
-    return TS_test, np.vstack(SP_test), np.stack(class_vec).flatten()
-
-
+    return np.vstack(TS_test), np.vstack(SP_test), np.stack(class_vec).flatten()
 
 import tensorflow.keras.backend as K
 def get_f1(y_true, y_pred): #taken from old keras source code
@@ -196,19 +191,68 @@ def get_f1(y_true, y_pred): #taken from old keras source code
 
 
     
-    
-# =============================================================================
-# 
-# =============================================================================
 train_dir = op.join(MEGnet.__path__[0], 'prep_inputs','training')
 np_arr_topdir = op.join(train_dir, 'Inputs')
 arrTS_fname = op.join(np_arr_topdir, 'arrTS.npy')
 arrSP_fname = op.join(np_arr_topdir, 'arrSP.npy')
 arrC_ID_fname = op.join(np_arr_topdir, 'arrC_ID.npy')
 
-# List of numpy arrays needed because of different lengths
-arrTimeSeries = dict()
+arrTS_fname_45000 = op.join(np_arr_topdir, 'arrTS_45000.npy')
+arrSP_fname_45000 = op.join(np_arr_topdir, 'arrSP_45000.npy')
+arrC_ID_fname_45000 = op.join(np_arr_topdir, 'arrC_ID.npy')
 
+def load_all_inputs(multistep=False):
+    '''
+    Returns the precompiled numpy arrays.
+
+    Parameters
+    ----------
+    multistep : BOOL, optional
+        If True, returns the 45000 second data. The default is False.
+
+    Returns
+    -------
+    arrTimeSeries : np.ndarray
+        Components X time - (15000 or 45000 designated by multistep)
+    arrSpatialMap : np.ndarray
+        Components X 256 X 256 X 3.
+    class_ID : TYPE
+        Component Classification.
+
+    '''
+    if multistep==False:
+        arrTimeSeries = np.load(arrTS_fname)
+        arrSpatialMap = np.load(arrSP_fname)
+        class_ID = np.load(arrC_ID_fname)  
+        assert arrTimeSeries.shape[0] == arrSpatialMap.shape[0]
+        assert class_ID.shape[0] == arrTimeSeries.shape[0]
+        assert final.__len__() == int(arrTimeSeries.shape[0]/20)
+        print('Returning data with 15000 seconds')
+    else:
+        arrTimeSeries = np.load(arrTS_fname_45000)
+        arrSpatialMap = np.load(arrSP_fname_45000)
+        class_ID = np.load(arrC_ID_fname_45000)
+        assert arrTimeSeries.shape[0] == arrSpatialMap.shape[0]
+        assert class_ID.shape[0] == arrTimeSeries.shape[0]
+        assert final.__len__() == int(arrTimeSeries.shape[0]/20)
+        print('Returning data with 45000 seconds')
+    return arrTimeSeries, arrSpatialMap, class_ID    
+
+
+#Get all 
+# if not os.path.exists(np_arr_topdir):
+#     if not op.exists(op.join(train_dir, 'ICAs')):
+#                      raise BaseException('Need to run make_links.sh')
+#     os.mkdir(np_arr_topdir)
+# arrTimeSeries, arrSpatialMap, class_ID = extract_all_datasets(final)
+#     np.save(arrTS_fname, arrTimeSeries)
+#     np.save(arrSP_fname, arrSpatialMap)
+#     np.save(arrC_ID_fname, class_ID)    
+# else:
+#     arrTimeSeries = np.load(arrTS_fname)
+#     arrSpatialMap = np.load(arrSP_fname)
+#     class_ID = np.load(arrC_ID_fname)
+    
 
 
 
@@ -217,24 +261,7 @@ from tensorflow import keras
 model_fname = op.join(MEGnet.__path__[0], 'model/MEGnet_final_model.h5')
 kModel = keras.models.load_model(model_fname, compile=False)
 
-#!!! Fix Don't save out the data because TS is not numpy 
-#Get all      
-# if not os.path.exists(np_arr_topdir):
-#     if not op.exists(op.join(train_dir, 'ICAs')):
-#                      raise BaseException('Need to run make_links.sh')
-#     os.mkdir(np_arr_topdir)
-arrTimeSeries, arrSpatialMap, class_ID = extract_all_datasets(final)
-    # np.save(arrTS_fname, arrTimeSeries)
-    # np.save(arrSP_fname, arrSpatialMap)
-    # np.save(arrC_ID_fname, class_ID)    
-# else:
-#     arrTimeSeries = np.load(arrTS_fname)
-#     arrSpatialMap = np.load(arrSP_fname)
-#     class_ID = np.load(arrC_ID_fname)
-    
-assert len(arrTimeSeries)*20 == arrSpatialMap.shape[0]
-assert class_ID.shape[0] == len(arrTimeSeries)*20 #.shape[0]
-assert final.__len__() == len(arrTimeSeries)
+arrTimeSeries, arrSpatialMap, class_ID = load_all_inputs()
 
 # =============================================================================
 # Cross Validation
@@ -244,21 +271,20 @@ from MEGnet.prep_inputs import cvSplits
 final['idx']=final.index
 
 #Use the following function to match the CV to the ICAs
-def make_ica_subj_encoding(arrSpatialMap):
+def make_ica_subj_encoding(arrTimeSeries):
     '''Expand the coding for each subject by 20 - to match the number of ICAs'''
-    lenval = len(arrSpatialMap) #.shape[0]
+    lenval = arrTimeSeries.shape[0]
     idxs = range(lenval)
     test = [[i]*20 for i in range(int(lenval/20))]
     test = np.hstack(test)
     assert len(test) == len(idxs)
     return np.array([idxs, test]).T
 
-
 def get_cv_npyArr(sample=None,
                   holdout=None,
                     arrTimeSeries=None, 
                     arrSpatialMap=None,
-                    class_ID=None,
+                    class_ID=None
                     ):
     '''
     Return the numpy array for the test / train slice
@@ -279,7 +305,7 @@ def get_cv_npyArr(sample=None,
 
     
     #ICA number is in column 0 and subject index is column2
-    ica_code = make_ica_subj_encoding(arrSpatialMap)
+    ica_code = make_ica_subj_encoding(arrTimeSeries)
     
     if holdout is None:
         cv_tr = sample['train_indx']
@@ -294,16 +320,12 @@ def get_cv_npyArr(sample=None,
         
         #Subsample the cv
         tr_sub = ica_code[tr_idx[:,0],0]
-        tr_sub_ts =  set(tr_idx[:,1])
         te_sub = ica_code[te_idx[:,0],0]
-        te_sub_ts =  set(te_idx[:,1])
         train={'sp':arrSpatialMap[tr_sub,:,:,:],
-               'ts': {i:arrTimeSeries[key] for i,key in zip(range(len(tr_sub)), tr_sub_ts)}, #for  #######!!!!!!!!!! Fix
-                   # 'ts':arrTimeSeries[tr_sub,:],
+                   'ts':arrTimeSeries[tr_sub,:],
                    'clID':class_ID[tr_sub]}
         test={'sp':arrSpatialMap[te_sub,:,:,:],
-              'ts': {i:arrTimeSeries[key] for i,key in zip(range(len(te_sub)), te_sub_ts)},
-                   # 'ts':arrTimeSeries[te_sub,:],
+                   'ts':arrTimeSeries[te_sub,:],
                    'clID':class_ID[te_sub]}
         return train, test
     else:
@@ -311,7 +333,6 @@ def get_cv_npyArr(sample=None,
         hold_idx = [ica_code[ica_code[:,1]==i] for i in cv_hold]
         hold_idx = np.vstack(hold_idx)
         hold_sub = ica_code[hold_idx[:,0],0]
-        hold_sub_ts = hold_idx[:,1][::20]
         
         #tt_array is the test/train array - excluding the holdout
         tmp_full_array = copy.deepcopy(ica_code)
@@ -319,21 +340,16 @@ def get_cv_npyArr(sample=None,
         # not_hold_idx = [ica_code[ica_code[:,1]==i] for i in tt_array]
         # not_hold_idx = 
         tt_sub = tt_array[:,0]
-        tt_sub_ts = tt_array[:,1][::20]
         
         hold={'sp':arrSpatialMap[hold_sub,:,:,:],
-              # 'ts':arrTimeSeries[hold_sub,:],
-              'ts': {i:arrTimeSeries[key] for i,key in zip(range(len(hold_sub)), hold_sub_ts)},
+              'ts':arrTimeSeries[hold_sub,:],
               'clID':class_ID[hold_sub]}
         test_train={'sp':arrSpatialMap[tt_sub,:,:,:],
-               # 'ts':arrTimeSeries[tt_sub,:],
-               'ts':{i:arrTimeSeries[key] for i,key in zip(range(len(tt_sub)), tt_sub_ts)},
+               'ts':arrTimeSeries[tt_sub,:],
                'clID':class_ID[tt_sub]}
         return hold, test_train
         
 #Create holdout
-assert sum(final['key']==final.index)==len(final) #Confirm index and key are the same - precautionary
-
 tmp_holdout = cvSplits.main(kfolds=5, foldNormFields=crossval_cols, data_dframe=final)
 holdout_dframe_idxs = tmp_holdout[0]['test_indx']  #First CV test set ~20% of data
 hold, tsttr = get_cv_npyArr(sample=None,
@@ -352,7 +368,7 @@ tsttr_sp, tsttr_ts, tsttr_clID = tsttr['sp'], tsttr['ts'], tsttr['clID']
 #oversampler= smote_variants.LLE_SMOTE()
 #X_samp, y_samp= oversampler.sample(X, y)
 # =============================================================================
-from imblearn.over_sampling import SMOTE
+# from imblearn.over_sampling import SMOTE
 def make_smote_sample(SP, class_vec):
     spShape=SP.shape
     sm = SMOTE(random_state=42)
@@ -374,12 +390,15 @@ def make_dual_smote_sample(SP, TS, class_vec, seed=0):
     return Xsp_smote, Xts_smote, y_sp_smote
 
 
-import tensorflow_addons as tfa
-f1mac_score=tfa.metrics.F1Score(4, average='macro', threshold=0.4)
+# normalize = tf.keras.layers.Normalization(mean=0, variance=1)
+# normalize(arrSpatialMap)
+
+import sklearn
+
 
 
 NB_EPOCH = 10
-BATCH_SIZE = 500 #  Approximately 12 or so examples per category in each batch
+BATCH_SIZE = 1000 #  Approximately 12 or so examples per category in each batch
 VERBOSE = 1
 # OPTIMIZER = Adam()  #switch to AdamW
 VALIDATION_SPLIT = 0.20
@@ -388,22 +407,26 @@ VALIDATION_SPLIT = 0.20
 
 kModel.compile(
     loss=keras.losses.SparseCategoricalCrossentropy(), #CategoricalCrossentropy(), 
-    optimizer='Adam',
+    optimizer=keras.optimizers.Adam(learning_rate=1e-5), 
     #batch_size=BATCH_SIZE,
     #epochs=NB_EPOCH,
     #verbose=VERBOSE,
-    metrics=['accuracy'] #f1mac_score]#,'accuracy']
+    metrics=['accuracy']
     )
 
-class_weights={0:1, 1:2, 2:2, 3:2}
+class_weights={0:1, 1:3, 2:3, 3:3}
 # class_weights={0:1, 1:10, 2:10, 3:10}
+import tensorflow as tf
+earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss',
+                                 patience=3,
+                                 restore_best_weights=True)
+
 
 history=[]
-score_list=[]
 tt_final = final.drop(index=holdout_dframe_idxs)
 tt_final.reset_index(inplace=True, drop=True)
 cv = cvSplits.main(kfolds=8, foldNormFields=crossval_cols, data_dframe=tt_final)
-for cv_num in cv.keys():
+for cv_num in [0,1]: # cv.keys():
     sample = cv[cv_num]
     tr, te = get_cv_npyArr(sample,
                           holdout=None,
@@ -413,15 +436,15 @@ for cv_num in cv.keys():
                         )
     
     # SP_, TS_ , CL_ = make_dual_smote_sample(tr['sp'],tr['ts'], tr['clID'], seed=int(cv_num))  
-                       
+    SP_, TS_, CL_   =  tr['sp'],tr['ts'], tr['clID']
+                   
     history_tmp = kModel.fit(x=dict(spatial_input=SP_, temporal_input=TS_), y=CL_,
                          batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE,   #validation_split=VALIDATION_SPLIT,
                          validation_data=(dict(spatial_input=te['sp'], temporal_input=te['ts']), te['clID']),
-                         class_weight=class_weights)
-    score_list.append(kModel.evaluate(x=dict(spatial_input=hold_sp, temporal_input=hold_ts), y=hold_clID))  
+                         class_weight=class_weights, callbacks=[earlystop])
     history.append(history_tmp)
 
-
+#%% 
 
 # score = kModel.evaluate(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID)
 score = kModel.evaluate(x=dict(spatial_input=hold_sp, temporal_input=hold_ts), y=hold_clID)    
@@ -449,8 +472,24 @@ for i in range(0,10):
     tmp_ = history[i].model.evaluate(x=dict(spatial_input=hold_sp, temporal_input=hold_ts), y=hold_clID)
     sc_.append(tmp_)
 
+y_hat = kModel.predict(x=dict(spatial_input=hold_sp, temporal_input=hold_ts))
+y_pred = y_hat.argmax(axis=1)
+
+
+
 from sklearn.metrics import confusion_matrix
-matrix = confusion_matrix(hold_clID, y_pred.argmax(axis=1))
+matrix = confusion_matrix(hold_clID, y_hat.argmax(axis=1))
+
+
+from MEGnet.megnet_utilities import fPredictChunkAndVoting
+output = fPredictChunkAndVoting(kModel, hold_ts, hold_sp, np.zeros((hold_ts.shape[0], 3)))
+y_chunk_pred = output[0].argmax(axis=2).squeeze()
+
+# matrix = confusion_matrix(hold_clID, y_chunk_pred)
+
+output2 = fPredictChunkAndVoting(lModel, hold_ts[:,:15000], hold_sp, np.zeros((hold_ts.shape[0], 3)))
+matrix2 = confusion_matrix(hold_clID, output2[0].argmax(axis=2).squeeze())
+
 #class_ID = class_ID.flatten()  #Make a 1D vector
 #tmp = class_ID.flatten()
 
