@@ -4,6 +4,16 @@
 git clone https://github.com/nih-megcore/MegNET_2020.git
 conda env create -n MegNET2020 --file MegNET_2020/conda_environment_update.yml
 ```
+## Alternate install of conda env
+```
+mamba create megnet2022 nvidia::tensorflow-gpu python==3.9 pip -y
+conda activate megnet2022
+mamba install --override-channels --channel=conda-forge mne -y
+git clone https://github.com/nih-megcore/MegNET_2020.git
+pip install .
+
+```
+
 ## Pip install package
 ```
 conda activate MegNET2020
