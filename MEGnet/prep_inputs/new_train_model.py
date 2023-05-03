@@ -15,6 +15,15 @@ from scipy.io import loadmat
 import numpy as np
 import copy
 
+if __name__=='__main__':
+    import argparse
+    parser=argparse.ArgumentParser()
+    parser.add_argument('-output_dir')
+    args = parser.parse_args()
+    output_dir = args.output_dir
+    if not os.path.exists(output_dir): os.mkdir(output_dir)
+
+
 
 tmp=MEGnet.__path__[0]
 class_table_path = op.join(tmp, 'prep_inputs', 'training', 'ICA_combined_participants.tsv')
@@ -426,7 +435,7 @@ history=[]
 tt_final = final.drop(index=holdout_dframe_idxs)
 tt_final.reset_index(inplace=True, drop=True)
 cv = cvSplits.main(kfolds=8, foldNormFields=crossval_cols, data_dframe=tt_final)
-for cv_num in [0,1]: # cv.keys():
+for cv_num in [0]:#cv.keys():
     sample = cv[cv_num]
     tr, te = get_cv_npyArr(sample,
                           holdout=None,
@@ -447,68 +456,51 @@ for cv_num in [0,1]: # cv.keys():
 #%% 
 
 # score = kModel.evaluate(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID)
-score = kModel.evaluate(x=dict(spatial_input=hold_sp, temporal_input=hold_ts), y=hold_clID)    
+# score = kModel.evaluate(x=dict(spatial_input=hold_sp, temporal_input=hold_ts), y=hold_clID)    
     
-from matplotlib import pyplot as plt    
-for i in range(0,10):
-    # i=0
-    plt.plot(history[i].history['accuracy'])    
-    plt.plot(history[i].history['val_accuracy'])
-    plt.plot(history[i].history['get_f1'])
+# from matplotlib import pyplot as plt    
+# for i in range(0,10):
+#     # i=0
+#     plt.plot(history[i].history['accuracy'])    
+#     plt.plot(history[i].history['val_accuracy'])
+#     plt.plot(history[i].history['get_f1'])
 
 import pickle
 def save_weights_and_history(history):
-    with open('./trainHistoryDict', 'wb') as file_pi:
-        pickle.dump(history.history, file_pi)
+    for idx,epoch in enumerate(history):
+        epo_dir = op.join(output_dir, f'epoch{idx}')
+        os.mkdir(epo_dir)
+        with open(f'{epo_dir}/trainHistoryDict', 'wb') as file_pi:
+            pickle.dump(history.history, file_pi)
 
 save_weights_and_history(history)
-kModel.save('Model.hd5')
+# kModel.save('Model.hd5')
+kModel.save(f'{output_dir}/model')
 # =============================================================================
 # 
 # =============================================================================
 
-sc_=[]
-for i in range(0,10):
-    tmp_ = history[i].model.evaluate(x=dict(spatial_input=hold_sp, temporal_input=hold_ts), y=hold_clID)
-    sc_.append(tmp_)
+# sc_=[]
+# for i in range(0,10):
+#     tmp_ = history[i].model.evaluate(x=dict(spatial_input=hold_sp, temporal_input=hold_ts), y=hold_clID)
+#     sc_.append(tmp_)
 
-y_hat = kModel.predict(x=dict(spatial_input=hold_sp, temporal_input=hold_ts))
-y_pred = y_hat.argmax(axis=1)
-
-
-
-from sklearn.metrics import confusion_matrix
-matrix = confusion_matrix(hold_clID, y_hat.argmax(axis=1))
-
-
-from MEGnet.megnet_utilities import fPredictChunkAndVoting
-output = fPredictChunkAndVoting(kModel, hold_ts, hold_sp, np.zeros((hold_ts.shape[0], 3)))
-y_chunk_pred = output[0].argmax(axis=2).squeeze()
-
-# matrix = confusion_matrix(hold_clID, y_chunk_pred)
-
-output2 = fPredictChunkAndVoting(lModel, hold_ts[:,:15000], hold_sp, np.zeros((hold_ts.shape[0], 3)))
-matrix2 = confusion_matrix(hold_clID, output2[0].argmax(axis=2).squeeze())
-
-#class_ID = class_ID.flatten()  #Make a 1D vector
-#tmp = class_ID.flatten()
-
-# #use the vote chunk prediction function to make a prediction on each input
-# from MEGnet.label_ICA_components import fPredictChunkAndVoting
-# output = fPredictChunkAndVoting(kModel, 
-#                                 arrTimeSeries, 
-#                                 arrSpatialMap, 
-#                                 np.zeros((20,3)), #the code expects the Y values as it was used for performance, just put in zeros as a place holder.
-#                                 intModelLen=15000, 
-#                                 intOverlap=3750)
-# arrPredicionsVote, arrGTVote, arrPredictionsChunk, arrGTChunk = output
+# y_hat = kModel.predict(x=dict(spatial_input=hold_sp, temporal_input=hold_ts))
+# y_pred = y_hat.argmax(axis=1)
 
 
 
-# x, y = final.apply(get_inputs)
+# from sklearn.metrics import confusion_matrix
+# matrix = confusion_matrix(hold_clID, y_hat.argmax(axis=1))
 
 
-# arrTimeSeries, arrSpatialMap = get_inputs(final.loc[0])
+# from MEGnet.megnet_utilities import fPredictChunkAndVoting
+# output = fPredictChunkAndVoting(kModel, hold_ts, hold_sp, np.zeros((hold_ts.shape[0], 3)))
+# y_chunk_pred = output[0].argmax(axis=2).squeeze()
 
+# # matrix = confusion_matrix(hold_clID, y_chunk_pred)
+
+# output2 = fPredictChunkAndVoting(lModel, hold_ts[:,:15000], hold_sp, np.zeros((hold_ts.shape[0], 3)))
+# matrix2 = confusion_matrix(hold_clID, output2[0].argmax(axis=2).squeeze())
 
 
