@@ -6,8 +6,11 @@ conda env create -n MegNET2020 --file MegNET_2020/conda_environment_update.yml
 ```
 ## Alternate install of conda env
 ```
-mamba create megnet2022 nvidia::tensorflow-gpu python==3.9 pip -y
+mamba create megnet2022  python==3.9 pip -y
 conda activate megnet2022
+mamba installl conda-forge::tensorflow-gpu -y
+#Use the following if the above fails
+#CONDA_CUDA_OVERRIDE="11.8" mamba install tensorflow -c conda-forge -y
 mamba install --override-channels --channel=conda-forge mne -y
 git clone https://github.com/nih-megcore/MegNET_2020.git
 pip install .
