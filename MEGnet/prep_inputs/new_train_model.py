@@ -471,7 +471,7 @@ def save_weights_and_history(history):
         epo_dir = op.join(output_dir, f'epoch{idx}')
         os.mkdir(epo_dir)
         with open(f'{epo_dir}/trainHistoryDict', 'wb') as file_pi:
-            pickle.dump(history.history, file_pi)
+            pickle.dump(epoch.history, file_pi)
 
 save_weights_and_history(history)
 # kModel.save('Model.hd5')
