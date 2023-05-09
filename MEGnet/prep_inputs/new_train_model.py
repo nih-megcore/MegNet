@@ -14,6 +14,7 @@ import glob
 from scipy.io import loadmat
 import numpy as np
 import copy
+import pickle
 
 if __name__=='__main__':
     import argparse
@@ -270,7 +271,7 @@ from tensorflow import keras
 model_fname = op.join(MEGnet.__path__[0], 'model/MEGnet_final_model.h5')
 kModel = keras.models.load_model(model_fname, compile=False)
 
-arrTimeSeries, arrSpatialMap, class_ID = load_all_inputs()
+# arrTimeSeries, arrSpatialMap, class_ID = load_all_inputs()
 
 # =============================================================================
 # Cross Validation
@@ -359,58 +360,29 @@ def get_cv_npyArr(sample=None,
         return hold, test_train
         
 #Create holdout
-tmp_holdout = cvSplits.main(kfolds=5, foldNormFields=crossval_cols, data_dframe=final)
-holdout_dframe_idxs = tmp_holdout[0]['test_indx']  #First CV test set ~20% of data
-hold, tsttr = get_cv_npyArr(sample=None,
-                                          holdout=holdout_dframe_idxs,
-                                            arrTimeSeries=arrTimeSeries, 
-                                            arrSpatialMap=arrSpatialMap,
-                                            class_ID=class_ID
-                                            )
-hold_sp, hold_ts, hold_clID = hold['sp'], hold['ts'], hold['clID']
-tsttr_sp, tsttr_ts, tsttr_clID = tsttr['sp'], tsttr['ts'], tsttr['clID']
-
-# =============================================================================
-# SMOTE
-# from smote_variants import LLE_SMOTE
-# from smote_variants import MWMOTE
-#oversampler= smote_variants.LLE_SMOTE()
-#X_samp, y_samp= oversampler.sample(X, y)
-# =============================================================================
-# from imblearn.over_sampling import SMOTE
-def make_smote_sample(SP, class_vec):
-    spShape=SP.shape
-    sm = SMOTE(random_state=42)
-    test = SP.reshape([spShape[0], -1])  #Flatten X/Y/image depth
-    X_smote, y_smote = sm.fit_resample(test, class_vec) 
-    X_smote = X_smote.reshape([X_smote.shape[0], spShape[1], spShape[2], spShape[3]])
-    return X_smote, y_smote
-
-def make_dual_smote_sample(SP, TS, class_vec, seed=0):
-    spShape=SP.shape
-    test_sp = SP.reshape([spShape[0], -1])
-    test_ts = TS
-    
-    sm = SMOTE(random_state=seed)
-    Xsp_smote, y_sp_smote = sm.fit_resample(test_sp, class_vec)
-    Xts_smote, y_ts_smote = sm.fit_resample(test_ts, class_vec)
-    assert np.alltrue([i==j for i,j in zip(y_sp_smote, y_ts_smote)])
-    Xsp_smote = Xsp_smote.reshape([Xsp_smote.shape[0], spShape[1], spShape[2], spShape[3]])
-    return Xsp_smote, Xts_smote, y_sp_smote
+# tmp_holdout = cvSplits.main(kfolds=5, foldNormFields=crossval_cols, data_dframe=final)
+# holdout_dframe_idxs = tmp_holdout[0]['test_indx']  #First CV test set ~20% of data
+# hold, tsttr = get_cv_npyArr(sample=None,
+#                                           holdout=holdout_dframe_idxs,
+#                                             arrTimeSeries=arrTimeSeries, 
+#                                             arrSpatialMap=arrSpatialMap,
+#                                             class_ID=class_ID
+#                                             )
+# hold_sp, hold_ts, hold_clID = hold['sp'], hold['ts'], hold['clID']
+# tsttr_sp, tsttr_ts, tsttr_clID = tsttr['sp'], tsttr['ts'], tsttr['clID']
 
 
-# normalize = tf.keras.layers.Normalization(mean=0, variance=1)
-# normalize(arrSpatialMap)
+
 
 import sklearn
 
 
 
 NB_EPOCH = 10
-BATCH_SIZE = 1000 #  Approximately 12 or so examples per category in each batch
+BATCH_SIZE = 1000 
 VERBOSE = 1
 # OPTIMIZER = Adam()  #switch to AdamW
-VALIDATION_SPLIT = 0.20
+# VALIDATION_SPLIT = 0.20
 
 #get_f1_met = tfa.metrics.F1Score(num_classes=4)#, threshold=0.5)  #This seems to errror out when used
 
@@ -430,12 +402,23 @@ earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss',
                                  patience=3,
                                  restore_best_weights=True)
 
+## Load all of the cross validation data
+inputs_dir = op.join(MEGnet.__path__[0], 'prep_inputs/training/Inputs')
+tt_final = pd.read_csv(op.join(inputs_dir, 'TestTrain.csv'))
+tsttr_ts = np.load(op.join(inputs_dir, 'tsttr_ts.npy'))
+tsttr_sp = np.load(op.join(inputs_dir, 'tsttr_sp.npy'))
+tsttr_clID = np.load(op.join(inputs_dir, 'tsttr_clID.npy'))
+
+hold_ts = np.load(op.join(inputs_dir, 'hold_ts.npy'))
+hold_sp = np.load(op.join(inputs_dir, 'hold_sp.npy'))
+hold_clID = np.load(op.join(inputs_dir, 'hold_clID.npy'))
+
 
 history=[]
-tt_final = final.drop(index=holdout_dframe_idxs)
-tt_final.reset_index(inplace=True, drop=True)
-cv = cvSplits.main(kfolds=8, foldNormFields=crossval_cols, data_dframe=tt_final)
-for cv_num in [0]:#cv.keys():
+with open(op.join(inputs_dir, 'CVdict.pkl'), 'rb') as f:
+    cv = pickle.load(f)
+
+for cv_num in cv.keys():
     sample = cv[cv_num]
     tr, te = get_cv_npyArr(sample,
                           holdout=None,
@@ -444,7 +427,6 @@ for cv_num in [0]:#cv.keys():
                           class_ID=tsttr_clID,  #Subsampled array
                         )
     
-    # SP_, TS_ , CL_ = make_dual_smote_sample(tr['sp'],tr['ts'], tr['clID'], seed=int(cv_num))  
     SP_, TS_, CL_   =  tr['sp'],tr['ts'], tr['clID']
                    
     history_tmp = kModel.fit(x=dict(spatial_input=SP_, temporal_input=TS_), y=CL_,
@@ -455,6 +437,48 @@ for cv_num in [0]:#cv.keys():
 
 #%% 
 
+
+def save_weights_and_history(history):
+    for idx,epoch in enumerate(history):
+        epo_dir = op.join(output_dir, f'epoch{idx}')
+        os.mkdir(epo_dir)
+        with open(f'{epo_dir}/trainHistoryDict', 'wb') as file_pi:
+            pickle.dump(epoch.history, file_pi)
+
+save_weights_and_history(history)
+kModel.save(f'{output_dir}/model')
+
+score = kModel.evaluate(x=dict(spatial_input=hold_sp, temporal_input=hold_ts), y=hold_clID)
+with open(f'{output_dir}/score', 'wb') as f:
+    pickle.dump(score, f)
+    
+# =============================================================================
+#     Plot and save history
+# =============================================================================
+from matplotlib import pyplot as plt 
+i=0;  j=0
+fig, axes = plt.subplots(3,3)
+for epo in range(8):
+    with open(f'epoch{str(epo)}/trainHistoryDict', mode='rb') as w:
+        history = pickle.load(w)
+    if i==3:
+        i=0
+        j+=1
+    axes[j,i].plot(history['accuracy'], 'r')    
+    axes[j,i].plot(history['val_accuracy'], 'b')
+    axes[j,i].set_title(f'Epoch{str(epo)}')
+    i+=1
+fig.suptitle('Train (red) Test (blue)')
+fig.tight_layout()
+fig.savefig('TestTrain_graph.png', dpi=300) 
+  
+
+
+
+
+# =============================================================================
+# 
+# =============================================================================
 # score = kModel.evaluate(x=dict(spatial_input=arrSpatialMap, temporal_input=arrTimeSeries), y=class_ID)
 # score = kModel.evaluate(x=dict(spatial_input=hold_sp, temporal_input=hold_ts), y=hold_clID)    
     
@@ -465,17 +489,7 @@ for cv_num in [0]:#cv.keys():
 #     plt.plot(history[i].history['val_accuracy'])
 #     plt.plot(history[i].history['get_f1'])
 
-import pickle
-def save_weights_and_history(history):
-    for idx,epoch in enumerate(history):
-        epo_dir = op.join(output_dir, f'epoch{idx}')
-        os.mkdir(epo_dir)
-        with open(f'{epo_dir}/trainHistoryDict', 'wb') as file_pi:
-            pickle.dump(epoch.history, file_pi)
 
-save_weights_and_history(history)
-# kModel.save('Model.hd5')
-kModel.save(f'{output_dir}/model')
 # =============================================================================
 # 
 # =============================================================================
