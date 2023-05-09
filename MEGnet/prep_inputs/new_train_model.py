@@ -379,7 +379,7 @@ import sklearn
 
 
 NB_EPOCH = 10
-BATCH_SIZE = 1000 
+BATCH_SIZE = 700 
 VERBOSE = 1
 # OPTIMIZER = Adam()  #switch to AdamW
 # VALIDATION_SPLIT = 0.20
@@ -459,7 +459,7 @@ from matplotlib import pyplot as plt
 i=0;  j=0
 fig, axes = plt.subplots(3,3)
 for epo in range(8):
-    with open(f'epoch{str(epo)}/trainHistoryDict', mode='rb') as w:
+    with open(f'{output_dir}/epoch{str(epo)}/trainHistoryDict', mode='rb') as w:
         history = pickle.load(w)
     if i==3:
         i=0
