@@ -15,15 +15,27 @@ from scipy.io import loadmat
 import numpy as np
 import copy
 import pickle
+from sklearn import preprocessing
 
 if __name__=='__main__':
     import argparse
     parser=argparse.ArgumentParser()
     parser.add_argument('-output_dir')
+    parser.add_argument('-normalize',
+                        action='store_true',
+                        help='Apply min/max normalization')
+    parser.add_argument('-weights',
+                        default=3,
+                        help='Minority weighting for loss calc')
     args = parser.parse_args()
     output_dir = args.output_dir
+    if args.normalize==True:
+        NORMALIZE=True
+    else:
+       NORMALIZE=False
+    w_ = int(args.weights)
+    class_weights={0:1, 1:w_, 2:w_, 3:w_}
     if not os.path.exists(output_dir): os.mkdir(output_dir)
-
 
 
 tmp=MEGnet.__path__[0]
@@ -189,15 +201,6 @@ def extract_all_datasets(dframe):
             print(i)
     return np.vstack(TS_test), np.vstack(SP_test), np.stack(class_vec).flatten()
 
-import tensorflow.keras.backend as K
-def get_f1(y_true, y_pred): #taken from old keras source code
-    true_positives = K.sum(K.round(K.clip(y_true * y_pred, 0, 1)))
-    possible_positives = K.sum(K.round(K.clip(y_true, 0, 1)))
-    predicted_positives = K.sum(K.round(K.clip(y_pred, 0, 1)))
-    precision = true_positives / (predicted_positives + K.epsilon())
-    recall = true_positives / (possible_positives + K.epsilon())
-    f1_val = 2*(precision*recall)/(precision+recall+K.epsilon())
-    return f1_val
 
 
     
@@ -272,6 +275,9 @@ model_fname = op.join(MEGnet.__path__[0], 'model/MEGnet_final_model.h5')
 kModel = keras.models.load_model(model_fname, compile=False)
 
 # arrTimeSeries, arrSpatialMap, class_ID = load_all_inputs()
+
+from tensorflow_addons.metrics import F1Score
+f1_score=F1Score(4, average='macro')
 
 # =============================================================================
 # Cross Validation
@@ -378,27 +384,23 @@ import sklearn
 
 
 
-NB_EPOCH = 10
-BATCH_SIZE = 700 
+NB_EPOCH = 100
+BATCH_SIZE = 700  
 VERBOSE = 1
 # OPTIMIZER = Adam()  #switch to AdamW
 # VALIDATION_SPLIT = 0.20
 
-#get_f1_met = tfa.metrics.F1Score(num_classes=4)#, threshold=0.5)  #This seems to errror out when used
 
 kModel.compile(
-    loss=keras.losses.SparseCategoricalCrossentropy(), #CategoricalCrossentropy(), 
+    loss=keras.losses.CategoricalCrossentropy(), 
     optimizer=keras.optimizers.Adam(learning_rate=1e-5), 
-    #batch_size=BATCH_SIZE,
-    #epochs=NB_EPOCH,
-    #verbose=VERBOSE,
-    metrics=['accuracy']
+    metrics=[f1_score, 'accuracy']
     )
 
-class_weights={0:1, 1:3, 2:3, 3:3}
-# class_weights={0:1, 1:10, 2:10, 3:10}
+
 import tensorflow as tf
-earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss',
+from tensorflow import one_hot
+earlystop = tf.keras.callbacks.EarlyStopping(monitor='val_f1_score',
                                  patience=3,
                                  restore_best_weights=True)
 
@@ -408,10 +410,31 @@ tt_final = pd.read_csv(op.join(inputs_dir, 'TestTrain.csv'))
 tsttr_ts = np.load(op.join(inputs_dir, 'tsttr_ts.npy'))
 tsttr_sp = np.load(op.join(inputs_dir, 'tsttr_sp.npy'))
 tsttr_clID = np.load(op.join(inputs_dir, 'tsttr_clID.npy'))
+# tsttr_clID = one_hot(tsttr_clID, 4)
 
 hold_ts = np.load(op.join(inputs_dir, 'hold_ts.npy'))
 hold_sp = np.load(op.join(inputs_dir, 'hold_sp.npy'))
 hold_clID = np.load(op.join(inputs_dir, 'hold_clID.npy'))
+# hold_clID = one_hot(hold_clID, 4)
+
+if NORMALIZE==True:
+    print('Normalizing the data')
+    ## Normalize the data
+    #MinMax timeseries
+    mm_scaler = preprocessing.MinMaxScaler(feature_range=(-1,1))
+    tsttr_ts = mm_scaler.fit_transform(tsttr_ts.T).T
+    hold_ts = mm_scaler.fit_transform(hold_ts.T).T
+    
+    #MinMax Spatial
+    mm_scaler = preprocessing.MinMaxScaler(feature_range=(0,1))
+    tmp = tsttr_sp.reshape([tsttr_sp.shape[0],-1])
+    tsttr_sp = mm_scaler.fit_transform(tmp.T).T.reshape(tsttr_sp.shape)
+    
+    tmp = hold_sp.reshape([hold_sp.shape[0],-1])
+    hold_sp = mm_scaler.fit_transform(tmp.T).T.reshape(hold_sp.shape)
+
+
+
 
 
 history=[]
@@ -429,9 +452,9 @@ for cv_num in cv.keys():
     
     SP_, TS_, CL_   =  tr['sp'],tr['ts'], tr['clID']
                    
-    history_tmp = kModel.fit(x=dict(spatial_input=SP_, temporal_input=TS_), y=CL_,
-                         batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE,   #validation_split=VALIDATION_SPLIT,
-                         validation_data=(dict(spatial_input=te['sp'], temporal_input=te['ts']), te['clID']),
+    history_tmp = kModel.fit(x=dict(spatial_input=SP_, temporal_input=TS_), y=one_hot(CL_,4),
+                         batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE,  
+                         validation_data=(dict(spatial_input=te['sp'], temporal_input=te['ts']), one_hot(te['clID'],4)),
                          class_weight=class_weights, callbacks=[earlystop])
     history.append(history_tmp)
 
@@ -448,7 +471,7 @@ def save_weights_and_history(history):
 save_weights_and_history(history)
 kModel.save(f'{output_dir}/model')
 
-score = kModel.evaluate(x=dict(spatial_input=hold_sp, temporal_input=hold_ts), y=hold_clID)
+score = kModel.evaluate(x=dict(spatial_input=hold_sp, temporal_input=hold_ts), y=one_hot(hold_clID,4))
 with open(f'{output_dir}/score', 'wb') as f:
     pickle.dump(score, f)
     
@@ -464,8 +487,10 @@ for epo in range(8):
     if i==3:
         i=0
         j+=1
-    axes[j,i].plot(history['accuracy'], 'r')    
+    axes[j,i].plot(history['accuracy'], 'r')
+    axes[j,i].plot(history['accuracy'], 'g')    
     axes[j,i].plot(history['val_accuracy'], 'b')
+    axes[j,i].plot(history['val_f1_score'], 'k')
     axes[j,i].set_title(f'Epoch{str(epo)}')
     i+=1
 fig.suptitle('Train (red) Test (blue)')
@@ -473,9 +498,34 @@ fig.tight_layout()
 fig.savefig('TestTrain_graph.png', dpi=300) 
   
 
+from matplotlib import pyplot as plt 
+i=0;  j=0
+fig, axes = plt.subplots(2,2)
+for epo in range(1):
+    # with open(f'{output_dir}/epoch{str(epo)}/trainHistoryDict', mode='rb') as w:
+    #     history = pickle.load(w)
+    if i==3:
+        i=0
+        j+=1
+    axes[j,i].plot(history['accuracy'], 'r-')
+    axes[j,i].plot(history['accuracy'], 'g+')    
+    axes[j,i].plot(history['val_accuracy'], 'b-')
+    axes[j,i].plot(history['val_f1_score'], 'k+')
+    axes[j,i].set_title(f'Epoch{str(epo)}')
+    i+=1
+fig.suptitle('TrAcc(red) TeAcc(blue) TrF1(green) TeF1(black)')
+fig.tight_layout()
+fig.savefig('TestTrain_graph.png', dpi=300) 
 
-
-
+#haven't tested since converting to one_hot encoding
+try:
+    from sklearn.metrics import confusion_matrix
+    y_hat = kModel.predict(x=dict(spatial_input=hold_sp, temporal_input=hold_ts))
+    y_pred = y_hat.argmax(axis=1)
+    matrix = confusion_matrix(hold_clID, y_hat.argmax(axis=1))
+    np.save(f'{output_dir}/confusion_mat.npy', matrix)
+except:
+    pass
 # =============================================================================
 # 
 # =============================================================================
