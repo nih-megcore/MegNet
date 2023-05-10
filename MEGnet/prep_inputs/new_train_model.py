@@ -401,7 +401,8 @@ kModel.compile(
 import tensorflow as tf
 from tensorflow import one_hot
 earlystop = tf.keras.callbacks.EarlyStopping(monitor='val_f1_score',
-                                 patience=3,
+                                 patience=8,
+				 mode='max',
                                  restore_best_weights=True)
 
 ## Load all of the cross validation data
