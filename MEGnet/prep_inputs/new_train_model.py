@@ -503,8 +503,8 @@ from matplotlib import pyplot as plt
 i=0;  j=0
 fig, axes = plt.subplots(2,2)
 for epo in range(1):
-    # with open(f'{output_dir}/epoch{str(epo)}/trainHistoryDict', mode='rb') as w:
-    #     history = pickle.load(w)
+    with open(f'{output_dir}/epoch{str(epo)}/trainHistoryDict', mode='rb') as w:
+        history = pickle.load(w)
     if i==3:
         i=0
         j+=1
