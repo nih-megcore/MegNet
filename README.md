@@ -14,8 +14,15 @@ mamba install conda-forge::tensorflow-gpu -y
 mamba install --override-channels --channel=conda-forge mne -y
 git clone https://github.com/nih-megcore/MegNET_2020.git
 pip install .
-
 ```
+## Biowulf install for training
+```
+mamba create -p $(pwd)/megnet2022 conda-forge::tensorflow-gpu pip conda-forge::ipython -y 
+mamba install numpy pandas scikit-learn -c conda-forge --freeze-installed
+pip install -e . --no-deps
+pip install --no-deps git+https://github.com/trent-b/iterative-stratification.git@master
+```
+
 
 ## Pip install package
 ```
