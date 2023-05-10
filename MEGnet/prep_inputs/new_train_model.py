@@ -16,6 +16,8 @@ import numpy as np
 import copy
 import pickle
 from sklearn import preprocessing
+from matplotlib import pyplot as plt 
+from sklearn.metrics import confusion_matrix
 
 if __name__=='__main__':
     import argparse
@@ -429,10 +431,10 @@ if NORMALIZE==True:
     #MinMax Spatial
     mm_scaler = preprocessing.MinMaxScaler(feature_range=(0,1))
     tmp = tsttr_sp.reshape([tsttr_sp.shape[0],-1])
-    tsttr_sp = mm_scaler.fit_transform(tmp.T).T.reshape(tsttr_sp.shape)
+    tsttr_sp = mm_scaler.fit_transform(tmp.T).T.reshape(tsttr_sp.shape).astype(np.float16) #memory issues with float64
     
     tmp = hold_sp.reshape([hold_sp.shape[0],-1])
-    hold_sp = mm_scaler.fit_transform(tmp.T).T.reshape(hold_sp.shape)
+    hold_sp = mm_scaler.fit_transform(tmp.T).T.reshape(hold_sp.shape).astype(np.float16)
 
 
 
@@ -479,7 +481,7 @@ with open(f'{output_dir}/score', 'wb') as f:
 # =============================================================================
 #     Plot and save history
 # =============================================================================
-from matplotlib import pyplot as plt 
+
 i=0;  j=0
 fig, axes = plt.subplots(3,3)
 for epo in range(8):
@@ -489,28 +491,8 @@ for epo in range(8):
         i=0
         j+=1
     axes[j,i].plot(history['accuracy'], 'r')
-    axes[j,i].plot(history['accuracy'], 'g')    
-    axes[j,i].plot(history['val_accuracy'], 'b')
-    axes[j,i].plot(history['val_f1_score'], 'k')
-    axes[j,i].set_title(f'Epoch{str(epo)}')
-    i+=1
-fig.suptitle('Train (red) Test (blue)')
-fig.tight_layout()
-fig.savefig('TestTrain_graph.png', dpi=300) 
-  
-
-from matplotlib import pyplot as plt 
-i=0;  j=0
-fig, axes = plt.subplots(2,2)
-for epo in range(1):
-    with open(f'{output_dir}/epoch{str(epo)}/trainHistoryDict', mode='rb') as w:
-        history = pickle.load(w)
-    if i==3:
-        i=0
-        j+=1
-    axes[j,i].plot(history['accuracy'], 'r-')
-    axes[j,i].plot(history['accuracy'], 'g+')    
-    axes[j,i].plot(history['val_accuracy'], 'b-')
+    axes[j,i].plot(history['f1_score'], 'g')    
+    axes[j,i].plot(history['val_accuracy'], 'b+')
     axes[j,i].plot(history['val_f1_score'], 'k+')
     axes[j,i].set_title(f'Epoch{str(epo)}')
     i+=1
@@ -518,15 +500,11 @@ fig.suptitle('TrAcc(red) TeAcc(blue) TrF1(green) TeF1(black)')
 fig.tight_layout()
 fig.savefig('TestTrain_graph.png', dpi=300) 
 
-#haven't tested since converting to one_hot encoding
-try:
-    from sklearn.metrics import confusion_matrix
-    y_hat = kModel.predict(x=dict(spatial_input=hold_sp, temporal_input=hold_ts))
-    y_pred = y_hat.argmax(axis=1)
-    matrix = confusion_matrix(hold_clID, y_hat.argmax(axis=1))
-    np.save(f'{output_dir}/confusion_mat.npy', matrix)
-except:
-    pass
+
+y_hat = kModel.predict(x=dict(spatial_input=hold_sp, temporal_input=hold_ts))
+y_pred = y_hat.argmax(axis=1)
+matrix = confusion_matrix(hold_clID, y_hat.argmax(axis=1))
+np.save(f'{output_dir}/confusion_mat.npy', matrix)
 # =============================================================================
 # 
 # =============================================================================
