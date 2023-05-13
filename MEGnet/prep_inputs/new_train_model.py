@@ -106,7 +106,7 @@ if MODEL_EXT==False:
     kModel = keras.models.load_model(model_fname, compile=False)
 else:
     model_fname = op.join(MEGnet.__path__[0], 'model_extended2')
-    lModel = keras.models.load_model(model_fname, compile=False)
+    kModel = keras.models.load_model(model_fname, compile=False)
 
 # =============================================================================
 # Training parameters
