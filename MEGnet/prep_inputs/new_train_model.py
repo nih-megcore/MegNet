@@ -166,17 +166,14 @@ if BURN_IN==True:
         optimizer=keras.optimizers.Adam(), 
         metrics=[f1_score, 'accuracy']
         )
-    sample = cv[0]
-    tr, te = get_cv_npyArr(sample,
-                          holdout=None,
-                          arrTimeSeries=tsttr_ts,  #Subsampled array
-                          arrSpatialMap=tsttr_sp, #Subsampled array
-                          class_ID=tsttr_clID,  #Subsampled array
-                        )
-    SP_, TS_, CL_   =  tr['sp'],tr['ts'], tr['clID']
-    history_tmp = kModel.fit(x=dict(spatial_input=SP_, temporal_input=TS_), y=one_hot(CL_,4),
+    tr = cv[0]['train'] #Train numpy indices axis0
+    te = cv[0]['test'] #Test numpy indices axis0
+    
+    SP_tr, TS_tr, CL_tr   =  arrSpatialMap[tr,:,:,:], arrTimeSeries[tr,:], class_ID[tr]
+    SP_te, TS_te, CL_te   =  arrSpatialMap[te,:,:,:], arrTimeSeries[te,:], class_ID[te] 
+    history_tmp = kModel.fit(x=dict(spatial_input=SP_tr, temporal_input=TS_tr), y=one_hot(CL_tr,4),
                          batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE,  
-                         validation_data=(dict(spatial_input=te['sp'], temporal_input=te['ts']), one_hot(te['clID'],4)),
+                         validation_data=(dict(spatial_input=SP_te, temporal_input=TS_te), one_hot(CL_te,4)),
                          class_weight=class_weights, callbacks=[earlystop])
 
 # =============================================================================
