@@ -44,7 +44,7 @@ import sys
 
 import matplotlib
 matplotlib.use('agg')
-plt.ion()
+# plt.ion()
 
 
 topdir = sys.argv[1]
@@ -327,6 +327,7 @@ def make_topos_datarun(folder, outdir=None):
     for comp in range(0,20):
       # get the ICA component data
       data=np.dot(ica.mixing_matrix_[:,comp].T, ica.pca_components_[:ica.n_components_])
+      data = data[mag_idxs]
     
       '''Generate the plot and save'''
       # create a circular outline without nose and ears, and get coordinates
@@ -354,7 +355,7 @@ def make_topos_datarun(folder, outdir=None):
                                     )
       
       print(comp)
-      plt.show()
+      # plt.show()
     
       # So matplotlib did strange things to the canvas and background image size when I tried to grab
       # the image from the canvas and convert directly to RGB. This ridiculous (but functional) hack is to 
