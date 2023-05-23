@@ -39,7 +39,7 @@ def fPredictICA(strSubjectICAPath, strOutputDir=None, strOutputType='list', strM
     arrSpatialMap = np.array([scipy.io.loadmat(os.path.join(strSubjectICAPath,f'component{i}.mat'))['array'] for i in range(1,21)])
     #crop the spatial map to remove additional pixels
     #arrSpatialMap = arrSpatialMap[:,30:-30,15:-15,:]
-    arrSpatialMap = arrSpatialMap[:,25:-35,16:-14,:]
+    # arrSpatialMap = arrSpatialMap[:,25:-35,16:-14,:]
     #pylab.imshow(arrSpatialMap[1,:,:,:])
     #ensure the data is compatable
     try:
