@@ -509,17 +509,6 @@ def fPredictChunkAndVoting(kModel, lTimeSeries, arrSpatialMap, arrY, intModelLen
             mean_vals = np.mean(testTimeSeries)#, axis=1, keepdims=True)
             testTimeSeries = testTimeSeries - mean_vals
             testTimeSeries = testTimeSeries * scaling_factors 
-            # # print(block_.shape)
-            # block -= block.mean() # [:,np.newaxis]
-            # mm_scaler = MinMaxScaler(feature_range=(-5, 5))
-            # block = mm_scaler.fit_transform(block[:,np.newaxis]).T.squeeze()
-            # # import pylab
-            # # pylab.plot(block)
-            # # pylab.show()
-            # # print(block.min())
-            # # print(block.max())
-            # # lPrediction = kModel.predict([np.expand_dims(arrScanSpatialMap,0),
-            # #                 np.expand_dims(np.expand_dims(arrScanTimeSeries[intStartTime:intStartTime+intModelLen],0),-1)])
             
             lPrediction = kModel.predict([np.expand_dims(arrScanSpatialMap,0),
                                         np.expand_dims(np.expand_dims(testTimeSeries,0),-1)])

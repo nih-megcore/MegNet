@@ -395,30 +395,16 @@ def make_longform_dframe(dframe, class_ID=None):
     return dframe_longform
 
 
-
-# init_cols = final.columns    
-# ica_dummy_var = [f'ICA0{str(i)}' for i in range(10)] +  [f'ICA{str(i)}' for i in range(10,20)]
-# final_wideform = copy.deepcopy(final)
-# for idx, row in final_wideform.iterrows():
-#     final_wideform.loc[idx,ica_dummy_var]=make_classification_vector(row)
-
-# final_longform = pd.melt(final_wideform, id_vars=init_cols, value_vars=ica_dummy_var,
-#                          var_name='ICAnum', value_name='ClassID')
-
-# final_longform.sort_values(by=['key','ICAnum'], ascending=True, inplace=True)
-# final_longform.reset_index(drop=True, inplace=True)
-
-
-# final_longform = final_longform.drop(columns=['eyeblink', 'Saccade', 'EKG', 'other', 'Unnamed: 7', 'Unnamed: 6', 'type_y','type_x'])
-# final_longform.ClassID = final_longform.ClassID.astype(int)
-
-# match_idxs = [i*20 for i in range(len(final))]
-# tmp = final.participant_id.values == final_longform.loc[match_idxs, 'participant_id'].values
-# assert False not in tmp
-
-# assert np.alltrue(class_ID==final_longform.ClassID)
 final_longform = make_longform_dframe(final, class_ID=class_ID)
-final_longform.to_csv('final_longform.csv')
+out_fname = op.join(op.dirname(np_arr_topdir), 'final_longform_dframe.csv')
+final_longform.to_csv(out_fname)
+
+# =============================================================================
+# Build time series chunks and normalize
+# =============================================================================
+
+
+
 
 
 # =============================================================================
