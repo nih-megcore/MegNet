@@ -96,9 +96,9 @@ def get_inputs(dataset_info):
     for i in range(1,21): spat_.append(loadmat(op.join(data_dir, f'component{str(i)}.mat'))['array'])
     assert len(spat_)==20
     spat_ = np.stack(spat_)
-    assert spat_.shape == (20,180, 150, 3)
+    assert spat_.shape == (20,120, 120, 3)
     
-    spat_resized = spat_[:,25:-35,16:-14,:]
+    spat_resized = spat_ #[:,25:-35,16:-14,:]
     class_vec = make_classification_vector(dataset_info)
     
     return ts_ , spat_resized, class_vec
@@ -197,14 +197,16 @@ arrC_ID_fname = op.join(np_arr_topdir, 'arrC_ID.npy')
 if not os.path.exists(np_arr_topdir):  
     os.mkdir(np_arr_topdir)
 arrTimeSeries, arrSpatialMap, class_ID = extract_all_datasets(final)
-np.save(arrTS_fname, arrTimeSeries)
-np.save(arrSP_fname, arrSpatialMap)
-np.save(arrC_ID_fname, class_ID)    
-final.to_csv('final.csv')
-
 assert arrTimeSeries.shape[0] == arrSpatialMap.shape[0]
 assert class_ID.shape[0] == len(arrTimeSeries) 
 assert final.__len__()*20 == arrTimeSeries.shape[0]
+
+np.save(arrTS_fname, arrTimeSeries)
+np.save(arrSP_fname, arrSpatialMap)
+np.save(arrC_ID_fname, class_ID)    
+final.to_csv('final_subjICA_dframe.csv')
+
+
 
 # =============================================================================
 # Cross Validation
@@ -317,7 +319,7 @@ tsttr_sp, tsttr_ts, tsttr_clID = tsttr['sp'], tsttr['ts'], tsttr['clID']
 # =============================================================================
 tt_final = final.drop(index=holdout_dframe_idxs)
 tt_final.reset_index(inplace=True, drop=True)
-cv = cvSplits.main(kfolds=8, foldNormFields=crossval_cols, data_dframe=tt_final)
+cv = cvSplits.main(kfolds=7, foldNormFields=crossval_cols, data_dframe=tt_final)
 for cv_num in cv.keys():
     final[f'Fold{str(cv_num)}']=False
     
@@ -352,28 +354,70 @@ for idx,row in final[final.HoldOut!=True].iterrows():
 # =============================================================================
 # Create a dataframe the same lenght as the ClassIDs/SP/TS arrays
 # =============================================================================
-init_cols = final.columns    
-ica_dummy_var = [f'ICA0{str(i)}' for i in range(10)] +  [f'ICA{str(i)}' for i in range(10,20)]
-final_wideform = copy.deepcopy(final)
-for idx, row in final_wideform.iterrows():
-    final_wideform.loc[idx,ica_dummy_var]=make_classification_vector(row)
+def make_longform_dframe(dframe, class_ID=None):
+    '''
+    Convert the subject level dataframe to component level dataframe.  Indexes
+    will match the 0-axis/row of the numpy array.
 
-final_longform = pd.melt(final_wideform, id_vars=init_cols, value_vars=ica_dummy_var,
-                         var_name='ICAnum', value_name='ClassID')
+    Parameters
+    ----------
+    dframe : pd.DataFrame
+        Subject level dataframe (merged demographics and ICA info).
+    classID : np.array
+        Class IDs for the rows of ICAs.  Used as a sanity check (assert).
 
-final_longform.sort_values(by=['key','ICAnum'], ascending=True, inplace=True)
-final_longform.reset_index(drop=True, inplace=True)
+    Returns
+    -------
+    dframe_longform : pd.DataFrame
+        ICA level dataframe.
+
+    '''
+    init_cols = dframe.columns    
+    ica_dummy_var = [f'ICA0{str(i)}' for i in range(10)] +  [f'ICA{str(i)}' for i in range(10,20)]
+    dframe_wideform = copy.deepcopy(dframe)
+    for idx, row in dframe_wideform.iterrows():
+        dframe_wideform.loc[idx,ica_dummy_var]=make_classification_vector(row)
+    
+    dframe_longform = pd.melt(dframe_wideform, id_vars=init_cols, value_vars=ica_dummy_var,
+                             var_name='ICAnum', value_name='ClassID')
+    
+    dframe_longform.sort_values(by=['key','ICAnum'], ascending=True, inplace=True)
+    dframe_longform.reset_index(drop=True, inplace=True)
+    
+    
+    dframe_longform = dframe_longform.drop(columns=['eyeblink', 'Saccade', 'EKG', 'other', 'Unnamed: 7', 'Unnamed: 6', 'type_y','type_x'])
+    dframe_longform.ClassID = dframe_longform.ClassID.astype(int)
+    
+    match_idxs = [i*20 for i in range(len(dframe))]
+    tmp = dframe.participant_id.values == dframe_longform.loc[match_idxs, 'participant_id'].values
+    assert False not in tmp
+    assert np.alltrue(class_ID==dframe_longform.ClassID)
+    return dframe_longform
 
 
-final_longform = final_longform.drop(columns=['eyeblink', 'Saccade', 'EKG', 'other', 'Unnamed: 7', 'Unnamed: 6', 'type_y','type_x'])
-final_longform.ClassID = final_longform.ClassID.astype(int)
 
-match_idxs = [i*20 for i in range(len(final))]
-tmp = final.participant_id.values == final_longform.loc[match_idxs, 'participant_id'].values
-assert False not in tmp
+# init_cols = final.columns    
+# ica_dummy_var = [f'ICA0{str(i)}' for i in range(10)] +  [f'ICA{str(i)}' for i in range(10,20)]
+# final_wideform = copy.deepcopy(final)
+# for idx, row in final_wideform.iterrows():
+#     final_wideform.loc[idx,ica_dummy_var]=make_classification_vector(row)
 
-assert np.alltrue(class_ID==final_longform.ClassID)
+# final_longform = pd.melt(final_wideform, id_vars=init_cols, value_vars=ica_dummy_var,
+#                          var_name='ICAnum', value_name='ClassID')
 
+# final_longform.sort_values(by=['key','ICAnum'], ascending=True, inplace=True)
+# final_longform.reset_index(drop=True, inplace=True)
+
+
+# final_longform = final_longform.drop(columns=['eyeblink', 'Saccade', 'EKG', 'other', 'Unnamed: 7', 'Unnamed: 6', 'type_y','type_x'])
+# final_longform.ClassID = final_longform.ClassID.astype(int)
+
+# match_idxs = [i*20 for i in range(len(final))]
+# tmp = final.participant_id.values == final_longform.loc[match_idxs, 'participant_id'].values
+# assert False not in tmp
+
+# assert np.alltrue(class_ID==final_longform.ClassID)
+final_longform = make_longform_dframe(final, class_ID=class_ID)
 final_longform.to_csv('final_longform.csv')
 
 

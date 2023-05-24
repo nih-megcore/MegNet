@@ -378,12 +378,16 @@ os.chdir(topdir)
 folders = glob.glob(op.join(topdir,'*'))
 folders = [op.basename(i) for i in folders]
 
+failed = []
 for folder in folders:
-    make_topos_datarun(folder, outdir=op.join(topdir, folder))
+    try:
+        make_topos_datarun(folder, outdir=op.join(topdir, folder))
+    except BaseException as e:
+        failed.append(e)
 
-
-
-
-
+if len(failed)>0:
+    print('These failed:')
+    print(failed)
+        
 
 
