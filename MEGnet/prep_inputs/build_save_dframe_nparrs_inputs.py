@@ -203,8 +203,8 @@ assert final.__len__()*20 == arrTimeSeries.shape[0]
 
 np.save(arrTS_fname, arrTimeSeries)
 np.save(arrSP_fname, arrSpatialMap)
-np.save(arrC_ID_fname, class_ID)    
-final.to_csv('final_subjICA_dframe.csv')
+np.save(arrC_ID_fname, class_ID) 
+final.to_csv(op.join(op.dirname(np_arr_topdir), 'final_subjICA_dframe.csv'))
 
 
 
@@ -407,49 +407,49 @@ final_longform.to_csv(out_fname)
 
 
 
-# =============================================================================
-# Quick VIS checks
-# =============================================================================
-veog = final_longform[final_longform.ClassID==1].index
-ekg = final_longform[final_longform.ClassID==2].index
-heog = final_longform[final_longform.ClassID==3].index
+# # =============================================================================
+# # Quick VIS checks
+# # =============================================================================
+# veog = final_longform[final_longform.ClassID==1].index
+# ekg = final_longform[final_longform.ClassID==2].index
+# heog = final_longform[final_longform.ClassID==3].index
 
-from matplotlib import pyplot as plt
-i=0; j=0
-fig, axes = plt.subplots(5,2)
-for i in range(10):
-    k=copy.deepcopy(i)
-    if i>4:
-        k-=5
-    axes[i,j].plot(arrTimeSeries[ekg[i],:1000])
-    if i==4: #(i%4==0) and (i!=0):
-        j+=1
+# from matplotlib import pyplot as plt
+# i=0; j=0
+# fig, axes = plt.subplots(5,2)
+# for i in range(10):
+#     k=copy.deepcopy(i)
+#     if i>4:
+#         k-=5
+#     axes[i,j].plot(arrTimeSeries[ekg[i],:1000])
+#     if i==4: #(i%4==0) and (i!=0):
+#         j+=1
         
 
-    output[VEOG] = 1 
-    output[HEOG] = 3
-    output[EKG] = 2
+#     output[VEOG] = 1 
+#     output[HEOG] = 3
+#     output[EKG] = 2
     
 
 
-# =============================================================================
-# Test group diffs
-# =============================================================================
-min_ = arrTimeSeries.min(axis=1)
-max_ = arrTimeSeries.max(axis=1)
-min_max = pd.DataFrame(zip(min_, max_), columns=['min','max'])
+# # =============================================================================
+# # Test group diffs
+# # =============================================================================
+# min_ = arrTimeSeries.min(axis=1)
+# max_ = arrTimeSeries.max(axis=1)
+# min_max = pd.DataFrame(zip(min_, max_), columns=['min','max'])
 
-ts_info_dframe = pd.merge(final_longform, min_max, left_index=True, right_index=True)
+# ts_info_dframe = pd.merge(final_longform, min_max, left_index=True, right_index=True)
 
-ts_info_dframe.groupby(['Site','ClassID'])['max'].agg([np.max,np.mean])
-ts_info_dframe.groupby(['Site','ClassID'])['min'].agg([np.min,np.mean])
+# ts_info_dframe.groupby(['Site','ClassID'])['max'].agg([np.max,np.mean])
+# ts_info_dframe.groupby(['Site','ClassID'])['min'].agg([np.min,np.mean])
 
-out_1 = ts_info_dframe.groupby(['Site'])['max'].agg([np.mean]).values - ts_info_dframe.groupby(['Site'])['min'].agg([np.mean]).values
-pd.DataFrame(out_1, index=['Cam','NIH','NYU','SLU'], columns=['Mean Range'])
+# out_1 = ts_info_dframe.groupby(['Site'])['max'].agg([np.mean]).values - ts_info_dframe.groupby(['Site'])['min'].agg([np.mean]).values
+# pd.DataFrame(out_1, index=['Cam','NIH','NYU','SLU'], columns=['Mean Range'])
 
-# =============================================================================
-# 
-# =============================================================================
+# # =============================================================================
+# # 
+# # =============================================================================
 
 
 
