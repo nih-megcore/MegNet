@@ -1,5 +1,6 @@
 import os
 import sys
+import copy
 import numpy as np
 import pandas as pd
 idx = pd.IndexSlice
@@ -10,6 +11,7 @@ import scipy.stats as stats
 #import paths
 import json
 import pickle
+from sklearn.preprocessing import MinMaxScaler
 
 import os.path as multi_stratified_k_fold  #Hack to get this to load totally nonsense import
 
@@ -500,8 +502,16 @@ def fPredictChunkAndVoting(kModel, lTimeSeries, arrSpatialMap, arrY, intModelLen
         #predict
         dctWeightedPredictions = {}
         for intStartTime in dctTimeChunkVotes.keys():
+            testTimeSeries = copy.deepcopy(arrScanTimeSeries[intStartTime:intStartTime+intModelLen])
+            min_vals = np.min(testTimeSeries)#, axis=1, keepdims=True)
+            max_vals = np.max(testTimeSeries)#, axis=1, keepdims=True)
+            scaling_factors = 10 / (max_vals - min_vals)
+            mean_vals = np.mean(testTimeSeries)#, axis=1, keepdims=True)
+            testTimeSeries = testTimeSeries - mean_vals
+            testTimeSeries = testTimeSeries * scaling_factors 
+            
             lPrediction = kModel.predict([np.expand_dims(arrScanSpatialMap,0),
-                                        np.expand_dims(np.expand_dims(arrScanTimeSeries[intStartTime:intStartTime+intModelLen],0),-1)])
+                                        np.expand_dims(np.expand_dims(testTimeSeries,0),-1)])
             lPredictionsChunk.append(lPrediction)
             lGTChunk.append(arrScanY)
             
