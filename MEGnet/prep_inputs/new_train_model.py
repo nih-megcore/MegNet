@@ -232,10 +232,10 @@ hold_idx = dframe[dframe.HoldOut==True].index.values
 hold_sp, hold_ts, hold_clID = arrSpatialMap[hold_idx,:,:,:], arrTimeSeries[hold_idx,:], class_ID[hold_idx]
 # arrTimeSeries=arrTimeSeries[:,:15000] #Temporary Hack
 
-
+l_rate=1e-3
 kModel.compile(
     loss=keras.losses.CategoricalCrossentropy(), 
-    optimizer=keras.optimizers.Adam(learning_rate=1e-3), 
+    optimizer=keras.optimizers.Adam(learning_rate=l_rate), 
     metrics=[f1_score, 'accuracy']
     )
 
@@ -254,6 +254,13 @@ for cv_num in cv.keys():
                          class_weight=class_weights, callbacks=[earlystop])
     save_weights_and_history(history_tmp, cv_num)
     history.append(history_tmp)
+    l_rate/=2 #Update the learning rate on each crossval
+    kModel.compile(
+            loss=keras.losses.CategoricalCrossentropy(), 
+            optimizer=keras.optimizers.Adam(learning_rate=l_rate), 
+            metrics=[f1_score, 'accuracy']
+            )
+    
     
     # score_history.append(fPredictChunkAndVoting(kModel, hold_ts, hold_sp, hold_clID))
 
