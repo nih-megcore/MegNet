@@ -74,7 +74,7 @@ if __name__=='__main__':
     else:
         FREEZE_MIDS = False
     w_ = int(args.weights)
-    class_weights={0:1, 1:w_, 2:w_, 3:str(int(w_)+5)}
+    class_weights={0:1, 1:w_, 2:w_, 3:int(w_)+5}
     if not os.path.exists(output_dir): os.mkdir(output_dir)
 
 # To initialize these not from commandline
@@ -231,7 +231,7 @@ hold_idx = dframe[dframe.HoldOut==True].index.values
 hold_sp, hold_ts, hold_clID = arrSpatialMap[hold_idx,:,:,:], arrTimeSeries[hold_idx,:], class_ID[hold_idx]
 # arrTimeSeries=arrTimeSeries[:,:15000] #Temporary Hack
 
-l_rate=1e-3
+l_rate=4e-4
 kModel.compile(
     loss=keras.losses.CategoricalCrossentropy(), 
     optimizer=keras.optimizers.Adam(learning_rate=l_rate), 

@@ -187,6 +187,7 @@ with open(out_fname, 'w') as f:
         f.write(f'PosPred: {positive_pred}\n')
         f.write(f'FalseNeg: {false_neg}\n')
         f.write(f'F1score: {f1score}\n')
+        np.save(op.join(topdir, f'epoch{epo_num}', 'confusion_mat.npy') ,conf_mat)
         
         
 
