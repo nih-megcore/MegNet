@@ -74,19 +74,18 @@ if __name__=='__main__':
     else:
         FREEZE_MIDS = False
     w_ = int(args.weights)
-    class_weights={0:1, 1:w_, 2:w_, 3:w_}
+    class_weights={0:1, 1:w_, 2:w_, 3:str(int(w_)+5)}
     if not os.path.exists(output_dir): os.mkdir(output_dir)
 
 # To initialize these not from commandline
 # NORMALIZE=True ; MODEL_EXT=False ; BURN_IN = False ; FREEZE_MIDS  = False; class_weights={0:1, 1:15, 2:15, 3:15}
-
 tmp=MEGnet.__path__[0]
-dframe_path = op.join(tmp, 'prep_inputs','training', 'final_longform_dframe.csv')
+dframe_path = op.join(tmp, 'prep_inputs','training', 'Inputs','NIH_CAM_HCP','Final_3site.csv')
 dframe = pd.read_csv(dframe_path)
 
 # All loaded vectors are 45000 samples in duration    
 train_dir = op.join(MEGnet.__path__[0], 'prep_inputs','training')
-np_arr_topdir = op.join(train_dir, 'Inputs')
+np_arr_topdir = op.join(train_dir, 'Inputs', 'NIH_CAM_HCP')
 arrTS_fname = op.join(np_arr_topdir, 'arrTS.npy')
 arrSP_fname = op.join(np_arr_topdir, 'arrSP.npy')
 arrC_ID_fname = op.join(np_arr_topdir, 'arrC_ID.npy')
@@ -239,6 +238,16 @@ kModel.compile(
     metrics=[f1_score, 'accuracy']
     )
 
+def save_weights_and_history(history, kModel, cv_num):
+    # for idx,epoch in enumerate(history):
+    epo_dir = op.join(output_dir, f'epoch{str(cv_num)}')
+    if not os.path.exists(epo_dir): os.mkdir(epo_dir)
+    with open(f'{epo_dir}/history.pkl', 'wb') as file_pi:
+        pickle.dump(history.history, file_pi)
+    kModel.save(f'{epo_dir}/model')
+    # with open(f'{epo_dir}/score', 'wb') as file_sc:
+    #     pickle.dump(score[idx], file_sc)
+
 score_history=[]
 for cv_num in cv.keys():
     fold = f'Fold{cv_num}'
@@ -252,7 +261,7 @@ for cv_num in cv.keys():
                          batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE,  
                          validation_data=(dict(spatial_input=SP_te, temporal_input=TS_te), one_hot(CL_te,4)),
                          class_weight=class_weights, callbacks=[earlystop])
-    save_weights_and_history(history_tmp, cv_num)
+    save_weights_and_history(history_tmp, kModel, cv_num)
     history.append(history_tmp)
     l_rate/=2 #Update the learning rate on each crossval
     kModel.compile(
@@ -265,15 +274,6 @@ for cv_num in cv.keys():
     # score_history.append(fPredictChunkAndVoting(kModel, hold_ts, hold_sp, hold_clID))
 
 #%% Save outputs
-def save_weights_and_history(history, kModel, cv_num):
-    # for idx,epoch in enumerate(history):
-    epo_dir = op.join(output_dir, f'epoch{str(cv_num)}')
-    os.mkdir(epo_dir)
-    with open(f'{epo_dir}/trainHistoryDict', 'wb') as file_pi:
-        pickle.dump(epoch.history, file_pi)
-    kModel.save(f'{epo_dir}/model')
-    # with open(f'{epo_dir}/score', 'wb') as file_sc:
-    #     pickle.dump(score[idx], file_sc)
 
 # save_weights_and_history(history)
 # kModel.save(f'{output_dir}/model')
