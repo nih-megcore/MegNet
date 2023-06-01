@@ -168,6 +168,7 @@ with open(out_fname, 'w') as f:
     for epo_num in [0,1,2,3,4,5, 6]:
         ypred = epoch_eval[f'epoch{epo_num}']
         conf_mat = confusion_matrix(cl, ypred)
+        np.save(op.join(topdir, f'epoch{epo_num}', 'confusion_mat.npy') ,conf_mat)
         acc = np.sum(cl==ypred)/len(cl)
         ax1_sum = conf_mat.sum(axis=1)
         diag_vals = copy.deepcopy(np.diag(conf_mat))
@@ -187,7 +188,6 @@ with open(out_fname, 'w') as f:
         f.write(f'PosPred: {positive_pred}\n')
         f.write(f'FalseNeg: {false_neg}\n')
         f.write(f'F1score: {f1score}\n')
-        np.save(op.join(topdir, f'epoch{epo_num}', 'confusion_mat.npy') ,conf_mat)
         
         
 
