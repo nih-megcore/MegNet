@@ -604,13 +604,13 @@ def main(filename, outbasename=None, mains_freq=60,
         out_fname = os.path.join(results_dir, file_base+'_250srate_meg.fif')
         raw.save(out_fname, overwrite=True) #Save with EEG
     
-    ica = calc_ica(raw, file_base=file_base, results_dir=results_dir,
-                   save=save_ica, seedval=seedval)
-    
     # pick only the MEG channels, and then grab the indices of the channels we want to use 
     raw.pick_types(meg=True, eeg=False, ref_meg=False)
     mag_idxs = mne.pick_types(raw.info, ref_meg=False, meg='mag')
-    
+
+    ica = calc_ica(raw, file_base=file_base, results_dir=results_dir,
+                   save=save_ica, seedval=seedval)
+        
     # generate the sensor positions on the circle
     circle_pos = sensor_pos2circle(raw, ica)
     
@@ -670,13 +670,24 @@ def main(filename, outbasename=None, mains_freq=60,
     
 if __name__ == '__main__':
     import argparse
-    parser = argparse.ArgumentParser()  
+    parser = argparse.ArgumentParser() 
+    # bids_args = parser.add_argument_group('BIDS')
+    # bids_args.add_argument('-bids_root', help='foo help')
+    # bids_args.add_argument('-bids_id', help='BIDS ID')
+    # bids_args.add_argument('-run', help='Run Number')
+    # bids_args.add_argument('-task', help='Task name')
+    
     parser.add_argument('-filename', help='Path to MEG dataset')
     parser.add_argument('-filename_raw', help='''Required for MEGIN data.
                         Path to the non-SSS data.  Do not use this data for 
                         non-MEGIN data.
                         ''')
-    parser.add_argument('-outbasename', help='basename for output directory', 
+    parser.add_argument('-outbasename', 
+                        help='''Basename for output directory.  If none is 
+                        provided, the basename up to the suffix of the file 
+                        will be used as the folder name inside of the results_dir.
+                        NOTE: this is a required flag for 4D/BTI data - since the 
+                        standard filenames are not unique''', 
                         required=False)
     parser.add_argument('-results_dir', help='Path to save the results')
     parser.add_argument('-line_freq', help='{60,50} Hz - AC electric frequency')
