@@ -7,6 +7,7 @@ Created on Tue May 30 15:13:22 2023
 """
 
 import os, os.path as op
+import glob
 import copy
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
@@ -33,7 +34,7 @@ import sys
 
 
 train_dir = op.join(MEGnet.__path__[0], 'prep_inputs','training')
-np_arr_topdir = op.join(train_dir, 'Inputs','NIH_CAM_HCP')
+np_arr_topdir = op.join(train_dir, 'Inputs','NIH_CAM_HCP_62750')
 arrTS_fname = op.join(np_arr_topdir, 'arrTS.npy')
 arrSP_fname = op.join(np_arr_topdir, 'arrSP.npy')
 arrC_ID_fname = op.join(np_arr_topdir, 'arrC_ID.npy')
@@ -59,7 +60,7 @@ arrY = cl
 intModelLen=15000
 intOverlap=3750
 
-def fPredictChunkAndVoting(kModel, lTimeSeries, arrSpatialMap, arrY, intModelLen=15000, intOverlap=3750):
+def fPredictChunkAndVoting(kModel, lTimeSeries, arrSpatialMap, intModelLen=15000, intOverlap=3750):
     """
     This function is designed to take in ICA time series and a spatial map pair and produce a prediction useing a trained model.
     The time series will be split into multiple chunks and the final prediction will be a weighted vote of each time chunk.
@@ -85,6 +86,10 @@ def fPredictChunkAndVoting(kModel, lTimeSeries, arrSpatialMap, arrY, intModelLen
 
     lPredictionsChunk = []
     lGTChunk = []
+    allChunkPredictions = []
+    
+    # if arrY==None:
+    #     arrY=np.zeros(len(arrSpatialMap))
 
     i = 0
     num_subjs = arrSpatialMap.shape[0]//20
@@ -93,6 +98,7 @@ def fPredictChunkAndVoting(kModel, lTimeSeries, arrSpatialMap, arrY, intModelLen
     
     for subj_idx in range(num_subjs):
     # for arrScanTimeSeries, arrScanSpatialMap, arrScanY in zip(lTimeSeries, arrSpatialMap, arrY):
+        lPredictionsChunk=[]
         arrScanTimeSeries=lTimeSeries[subj_idx, :,:]
         arrScanSpatialMap = arrSpatialMap[subj_idx,:,:,:,:]
         intTimeSeriesLen = lTimeSeries.shape[-1]
@@ -131,44 +137,50 @@ def fPredictChunkAndVoting(kModel, lTimeSeries, arrSpatialMap, arrY, intModelLen
         arrScanPrediction = arrScanPrediction.mean(axis=0)
         arrScanPrediction = arrScanPrediction/arrScanPrediction.sum()
         lPredictionsVote.append(arrScanPrediction)
-        
+        allChunkPredictions.append(np.stack(lPredictionsChunk, axis=-1))
         #print(f"{i}/{arrY.shape[0]}")
         i+=1
     lPredictionsVote = np.stack(lPredictionsVote)
     lPredictionsVote = lPredictionsVote.reshape(lPredictionsVote.shape[0]*lPredictionsVote.shape[1],-1)
-    return lPredictionsVote #, np.stack(lGTVote) #, np.stack(lPredictionsChunk), np.stack(lGTChunk)
+    return lPredictionsVote , np.stack(allChunkPredictions) #, np.stack(lGTChunk)
 
 # =============================================================================
 # Run the prediction scoring
 # =============================================================================
 
 topdir = sys.argv[1] #'/tmp/TESTing_053023/extended_w15_wBurnIn'
+os.chdir(topdir)
 
 
-
-def calc_stats( epo_num):
-    dirname = op.join(topdir,f'epoch{epo_num}') #/tmp/TESTing_053023/extended_w15_wBurnIn/epoch5'
+def calc_stats( dirname):
+    dirname = op.join(topdir,dirname) #/tmp/TESTing_053023/extended_w15_wBurnIn/epoch5'
     os.chdir(dirname)
 
     kModel = keras.models.load_model('./model', compile=False)
-    arrPredicionsVote = fPredictChunkAndVoting(kModel, arrTS, arrSP, cl, 
+    arrPredicionsVote, arrProb = fPredictChunkAndVoting(kModel, arrTS, arrSP,  
                                                intModelLen=15000, 
                                                intOverlap=3750)
     ypred = arrPredicionsVote.argmax(axis=1)
-    return ypred
+    return ypred, arrProb
 
 epoch_eval={}    
-for epo_num in [0,1,2,3,4,5, 6]:
-    epoch_eval[f'epoch{epo_num}'] = calc_stats(epo_num)
-    pred_fname = op.join(topdir, f'epoch{epo_num}', 'predictions.npy')
-    np.save(pred_fname, epoch_eval[f'epoch{epo_num}'])
+for dirname in glob.glob('epo*'): #epo_num in [0,1,2,3,4,5, 6]:
+    pred, prob = calc_stats(dirname)
+    epoch_eval[f'{dirname}'] = pred
+    epoch_eval[f'{dirname}_prob'] = prob
+    pred_fname = op.join(topdir, f'{dirname}', 'predictions.npy')
+    prob_fname = op.join(topdir, f'{dirname}', 'probabilities.npy')
+    np.save(pred_fname, epoch_eval[f'{dirname}'])
+    np.save(prob_fname, epoch_eval[f'{dirname}_prob'])
+    conf_mat = confusion_matrix(cl, pred)
+    np.save(op.join(topdir, f'{dirname}', 'confusion_mat.npy') ,conf_mat)
 
+os.chdir(topdir)
 out_fname = op.join(topdir, 'results.txt')
 with open(out_fname, 'w') as f:
-    for epo_num in [0,1,2,3,4,5, 6]:
-        ypred = epoch_eval[f'epoch{epo_num}']
+    for dirname in glob.glob('epo*'): #[0,1,2,3,4,5, 6]:
+        ypred = epoch_eval[f'{dirname}']
         conf_mat = confusion_matrix(cl, ypred)
-        np.save(op.join(topdir, f'epoch{epo_num}', 'confusion_mat.npy') ,conf_mat)
         acc = np.sum(cl==ypred)/len(cl)
         ax1_sum = conf_mat.sum(axis=1)
         diag_vals = copy.deepcopy(np.diag(conf_mat))
@@ -178,12 +190,12 @@ with open(out_fname, 'w') as f:
         # false_pos = conf_mat.sum(axis=0)/ax1_sum
         f1score = f1_score(cl, ypred, average='macro')
         
-        print(f'######### EPOCH{epo_num} #########')
+        print(f'######### {dirname} #########')
         print(f'Accuracy:  {acc}')
         print(f'PosPred: {positive_pred}')
         print(f'FalseNeg: {false_neg}')
         print(f'F1score: {f1score}')
-        f.write(f'######### EPOCH{epo_num} #########\n')
+        f.write(f'######### {dirname} #########\n')
         f.write(f'Accuracy:  {acc}\n')
         f.write(f'PosPred: {positive_pred}\n')
         f.write(f'FalseNeg: {false_neg}\n')
