@@ -340,7 +340,7 @@ def read_raw(filename, do_assess_bads=False):
         if raw.compensation_grade != 3:
             raw.apply_gradient_compensation(3)
     #XXX Hack -- figure out the correct way to identify 4D/BTI data
-    elif filename[-4:]=='rfDC':
+    elif (filename[-4:]=='rfDC') | ('c,rfhp' in filename[-14:]):
         raw = mne.io.read_raw_bti(filename, preload=True, 
                                   head_shape_fname=None)
     #XXX Hack - Confirm KIT assignment - sqd or con file
