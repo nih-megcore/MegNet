@@ -74,36 +74,37 @@ def write_call_matrix(dset):
         call = np.argmax(chunk, axis=1)    
         stable_call = [j if chunk[i,j]>0.8 else np.nan for i,j in enumerate(call)]
         call_matrix[:, chunk_idx] = np.array(stable_call).T
-        np.save(op.join(dset_dir, 'chunk_call_matrix.npy'), call_matrix)
-        print(call_matrix)
+
+    np.save(op.join(dset_dir, 'chunk_call_matrix.npy'), call_matrix)
+    print(call_matrix)
         
-        outdir = op.join(dset_dir, 'extra')
-        if not op.exists(outdir): os.mkdir(outdir)
-        idx_na, idx_veog, idx_ecg, idx_heog = get_example_cases(call_matrix)
-        
-        if idx_na is not None:
-            na_trace = arrTS[idx_na[0], starts[idx_na[1]]:starts[idx_na[1]]+15000]
-            na_topo = arrSP[idx_na[0],:,:,:]
-            np.save(op.join(outdir, 'na_tr.npy'), na_trace)
-            np.save(op.join(outdir, 'na_sp.npy'), na_topo)
-        
-        if idx_veog is not None:
-            veog_trace = arrTS[idx_veog[0], starts[idx_veog[1]]:starts[idx_veog[1]]+15000]
-            veog_topo = arrSP[idx_veog[0],:,:,:]
-            np.save(op.join(outdir, 'veog_tr.npy'), veog_trace)
-            np.save(op.join(outdir, 'veog_sp.npy'), veog_topo)
-        
-        if idx_ecg is not None:
-            ecg_trace = arrTS[idx_ecg[0], starts[idx_ecg[1]]:starts[idx_ecg[1]]+15000]
-            ecg_topo = arrSP[idx_ecg[0],:,:,:]
-            np.save(op.join(outdir, 'ecg_tr.npy'), ecg_trace)
-            np.save(op.join(outdir, 'ecg_sp.npy'), ecg_topo)
-        
-        if idx_heog is not None:
-            heog_trace = arrTS[idx_heog[0], starts[idx_heog[1]]:starts[idx_heog[1]]+15000]
-            heog_topo = arrSP[idx_heog[0],:,:,:]
-            np.save(op.join(outdir, 'heog_tr.npy'), heog_trace)
-            np.save(op.join(outdir, 'heog_sp.npy'), heog_topo)
+    outdir = op.join(dset_dir, 'extra')
+    if not op.exists(outdir): os.mkdir(outdir)
+    idx_na, idx_veog, idx_ecg, idx_heog = get_example_cases(call_matrix)
+    
+    if idx_na is not None:
+        na_trace = arrTS[idx_na[0], starts[idx_na[1]]:starts[idx_na[1]]+15000]
+        na_topo = arrSP[idx_na[0],:,:,:]
+        np.save(op.join(outdir, 'na_tr.npy'), na_trace)
+        np.save(op.join(outdir, 'na_sp.npy'), na_topo)
+    
+    if idx_veog is not None:
+        veog_trace = arrTS[idx_veog[0], starts[idx_veog[1]]:starts[idx_veog[1]]+15000]
+        veog_topo = arrSP[idx_veog[0],:,:,:]
+        np.save(op.join(outdir, 'veog_tr.npy'), veog_trace)
+        np.save(op.join(outdir, 'veog_sp.npy'), veog_topo)
+    
+    if idx_ecg is not None:
+        ecg_trace = arrTS[idx_ecg[0], starts[idx_ecg[1]]:starts[idx_ecg[1]]+15000]
+        ecg_topo = arrSP[idx_ecg[0],:,:,:]
+        np.save(op.join(outdir, 'ecg_tr.npy'), ecg_trace)
+        np.save(op.join(outdir, 'ecg_sp.npy'), ecg_topo)
+    
+    if idx_heog is not None:
+        heog_trace = arrTS[idx_heog[0], starts[idx_heog[1]]:starts[idx_heog[1]]+15000]
+        heog_topo = arrSP[idx_heog[0],:,:,:]
+        np.save(op.join(outdir, 'heog_tr.npy'), heog_trace)
+        np.save(op.join(outdir, 'heog_sp.npy'), heog_topo)
         
         
         
