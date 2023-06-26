@@ -16,6 +16,7 @@ setuptools.setup(
         "License :: OSI Approved :: UNLICENSE",
         "Operating System :: Linux/Unix",
     ],
+    include_package_data=True,
     install_requires=['mne>=1.2'],
     scripts=['MEGnet/prep_inputs/ICA.py'],
     extras_require={
