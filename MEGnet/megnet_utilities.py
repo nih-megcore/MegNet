@@ -581,3 +581,87 @@ def fSummaryDFFromRS(strRSRoot):
     dfSummary[['mean_val_f1','std_val_f1','mean_epochs']] = (dfSummary['model_path']+'/training_history.csv').apply(fGetModelStatsFromTrainingHistory)
     dfSummary['95CI_val_f1'] = dfSummary['mean_val_f1']-1.96*dfSummary['std_val_f1']
     return dfSummary
+
+def fPredictChunkAndVoting_parrallel(kModel, lTimeSeries, arrSpatialMap, intModelLen=15000, intOverlap=3750):
+    """
+    This function is designed to take in ICA time series and a spatial map pair and produce a prediction useing a trained model.
+    The time series will be split into multiple chunks and the final prediction will be a weighted vote of each time chunk.
+    The weight for the voting will be determined by the manout of time and overlap each chunk has with one another.
+    For example if the total lenght of the scan is 50 seconds, and the chunks are 15 seconds long with a 5 second overlap:
+        The first chunk will be the only chunk to use the first 10 seconds, and one of two chunks to use the next 5 seconds.
+            Thus   
+
+    :param kModel: The model that will be used for the predictions on each chunk. It should have two inputs the spatial map and time series respectivley
+    :type kModel: a keras model
+    :param lTimeSeries: The time series for each scan (can also be an array if all scans are the same lenght)
+    :type lTimeSeries: list or array (if each scan is a different length, then it needs to be a list)
+    :param arrSpatialMap: The spatial maps (one per scan)
+    :type arrSpatialMap: numpy array
+    :param intModelLen: The lenght of the time series in the model, defaults to 15000
+    :type intModelLen: int, optional
+    :param intOverlap: The lenght of the overlap between scans, defaults to 3750
+    :type intOverlap: int, optional
+    """
+    #empty list to hold the prediction for each component pair
+    lPredictionsVote = []
+    lGTVote = []
+
+    lPredictionsChunk = []
+    lGTChunk = []
+    allChunkPredictions = []
+    
+    # if arrY==None:
+    #     arrY=np.zeros(len(arrSpatialMap))
+
+    i = 0
+    num_subjs = arrSpatialMap.shape[0]//20
+    arrSpatialMap = arrSpatialMap.reshape(arrSpatialMap.shape[0]//20, 20, 120,120,3)
+    lTimeSeries = lTimeSeries.reshape(lTimeSeries.shape[0]//20, 20, -1)
+    
+    for subj_idx in range(num_subjs):
+    # for arrScanTimeSeries, arrScanSpatialMap, arrScanY in zip(lTimeSeries, arrSpatialMap, arrY):
+        lPredictionsChunk=[]
+        arrScanTimeSeries=lTimeSeries[subj_idx, :,:]
+        arrScanSpatialMap = arrSpatialMap[subj_idx,:,:,:,:]
+        intTimeSeriesLen = lTimeSeries.shape[-1]
+        lStartTimes = fGetStartTimesOverlap(intTimeSeriesLen, intModelLen=intModelLen, intOverlap=intOverlap)
+
+        if lStartTimes[-1]+intModelLen <= intTimeSeriesLen:
+            lStartTimes.append(arrScanTimeSeries.shape[0]-intModelLen)
+            
+        lTimeChunks = [[x,x+intModelLen] for x in lStartTimes]
+        dctTimeChunkVotes = dict([[x,0] for x in lStartTimes])
+        for intT in range(intTimeSeriesLen):
+            lChunkMatches = [x <= intT < x+intModelLen for x in dctTimeChunkVotes.keys()]
+            intInChunks = np.sum(lChunkMatches)
+            for intStartTime, bTruth in zip(dctTimeChunkVotes.keys(), lChunkMatches):
+                if bTruth:
+                    dctTimeChunkVotes[intStartTime]+=1.0/intInChunks
+
+        #predict
+        dctWeightedPredictions = {}
+        dctTimeChunkVotes = {i:j for i,j in dctTimeChunkVotes.items() if i>0}
+        for intStartTime in dctTimeChunkVotes.keys():
+            testTimeSeries = copy.deepcopy(arrScanTimeSeries[:, intStartTime:intStartTime+intModelLen])
+            min_vals = np.min(testTimeSeries, axis=1, keepdims=True)
+            max_vals = np.max(testTimeSeries, axis=1, keepdims=True)
+            scaling_factors = 8 / (max_vals - min_vals)
+            mean_vals = np.mean(testTimeSeries, axis=1, keepdims=True)
+            testTimeSeries = testTimeSeries - mean_vals
+            testTimeSeries = testTimeSeries * scaling_factors 
+            
+            lPrediction = kModel.predict([arrScanSpatialMap,testTimeSeries])
+            lPredictionsChunk.append(lPrediction)
+            
+            dctWeightedPredictions[intStartTime] = lPrediction*dctTimeChunkVotes[intStartTime]
+
+        arrScanPrediction = np.stack(dctWeightedPredictions.values())
+        arrScanPrediction = arrScanPrediction.mean(axis=0)
+        arrScanPrediction = arrScanPrediction/arrScanPrediction.sum()
+        lPredictionsVote.append(arrScanPrediction)
+        allChunkPredictions.append(np.stack(lPredictionsChunk, axis=-1))
+        i+=1
+    lPredictionsVote = np.stack(lPredictionsVote)
+    lPredictionsVote = lPredictionsVote.reshape(lPredictionsVote.shape[0]*lPredictionsVote.shape[1],-1)
+    return lPredictionsVote , np.stack(allChunkPredictions) #, np.stack(lGTChunk)
+
