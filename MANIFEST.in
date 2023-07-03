@@ -1,2 +1,6 @@
 include MEGnet/version
 recursive-include MEGnet/model
+include MEGnet/model/MEGnet_final_model.h5    
+include MEGnet/model/MEGnet_final_model.npy
+include MEGnet/model/MEGnet_final_model.json
+include MEGnet/model
