@@ -14,6 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mne
 from mne.preprocessing import ICA
+import scipy as sp
 from scipy.spatial import ConvexHull, convex_hull_plot_2d
 from scipy import interpolate
 from scipy.io import savemat
@@ -348,25 +349,105 @@ def read_raw(filename, do_assess_bads=False):
         raw = mne.io.read_raw_kit(filename, preload=True)
     return raw
 
-def assess_bads(raw_fname, is_eroom=False):
+def assess_bads(raw_fname, is_eroom=False): # assess MEG data for bad channels
     '''Code sampled from MNE python website
     https://mne.tools/dev/auto_tutorials/preprocessing/\
         plot_60_maxwell_filtering_sss.html'''
     from mne.preprocessing import find_bad_channels_maxwell
-    raw = mne.io.read_raw_fif(raw_fname)
-    # if raw.times[-1] > 60.0:
-    #     raw.crop(tmax=60)    
+    # load data with load_data to ensure correct function is chosen
+    raw = read_raw(raw_fname, do_assess_bads=False)    
+    #if raw.times[-1] > 60.0:
+    #    raw.crop(tmax=60)    
     raw.info['bads'] = []
     raw_check = raw.copy()
-    if is_eroom==False:
+    
+    vendor = mne.channels.channels._get_meg_system(raw.info)
+    
+    if vendor == '306m' or vendor == '122m':
+        
+        if is_eroom==False:
+            auto_noisy_chs, auto_flat_chs, auto_scores = find_bad_channels_maxwell(
+                raw_check, cross_talk=None, calibration=None,
+                return_scores=True, verbose=True)
+        else:
+            auto_noisy_chs, auto_flat_chs, auto_scores = find_bad_channels_maxwell(
+                raw_check, cross_talk=None, calibration=None,
+                return_scores=True, verbose=True, coord_frame="meg")
+            
+        # find_bad_channels_maxwell is actually pretty bad at finding flat channels - 
+        # it uses a much too stringent threshold. So, we need some supplementary code
+        # This is extra complicated for Elekta/MEGIN, because there are both mags and 
+        # grads, which will be on a different scale
+            
+        mags = mne.pick_types(raw_check.info, meg='mag')
+        grads = mne.pick_types(raw_check.info, meg='grad')
+        # get the standard deviation for each channel, and the trimmed mean of the stds
+        # have to do this separately for mags and grads
+        stdraw_mags = np.std(raw_check._data[mags,:],axis=1)
+        stdraw_grads = np.std(raw_check._data[grads,:],axis=1)    
+        stdraw_trimmedmean_mags = sp.stats.trim_mean(stdraw_mags,0.1)
+        stdraw_trimmedmean_grads = sp.stats.trim_mean(stdraw_grads,0.1)
+        # we can't use the same threshold here, because grads have a much greater 
+        # variance in the variances 
+        flat_mags = np.where(stdraw_mags < stdraw_trimmedmean_mags/100)[0]
+        flat_grads = np.where(stdraw_grads < stdraw_trimmedmean_grads/1000)[0]
+        # need to use list comprehensions
+        flat_idx_mags = [flat_mags[i] for i in flat_mags.tolist()]
+        flat_idx_grads = [flat_grads[i] for i in flat_grads.tolist()]
+        flats = []
+        for flat in flat_idx_mags:
+            flats.append(raw_check.info['ch_names'][mags[flat_idx_mags]])
+        for flat in flat_idx_grads:
+            flats.append(raw_check.info['ch_names'][grads[flat_idx_grads]])
+        
+    # ignore references and use 'meg' coordinate frame for CTF and KIT
+    
+    if vendor == 'CTF_275':
+        raw_check.apply_gradient_compensation(0)
         auto_noisy_chs, auto_flat_chs, auto_scores = find_bad_channels_maxwell(
-            raw_check, cross_talk=None, calibration=None,
-            return_scores=True, verbose=True)
-    else:
+            raw_check, cross_talk=None, calibration=None, coord_frame='meg',
+            return_scores=True, verbose=True, ignore_ref=True)
+        
+        # again, finding flat/bad channels is not great, so we add another algorithm
+        # since other vendors don't mix grads and mags, we only need to do this for
+        # a single channel type
+        
+        megs = mne.pick_types(raw_check.info, meg=True)
+        # get the standard deviation for each channel, and the trimmed mean of the stds
+        stdraw_megs = np.std(raw_check._data[megs,:],axis=1)
+        stdraw_trimmedmean_megs = sp.stats.trim_mean(stdraw_megs,0.1)
+        flat_megs = np.where(stdraw_megs < stdraw_trimmedmean_megs/100)[0]
+        # need to use list comprehensions
+        flat_idx_megs = [flat_megs[i] for i in flat_megs.tolist()]
+        flats = []
+        for flat in flat_idx_megs:
+            flats.append(raw_check.info['ch_names'][megs[flat_idx_mags]]) 
+    
+    else: 
+        
         auto_noisy_chs, auto_flat_chs, auto_scores = find_bad_channels_maxwell(
-            raw_check, cross_talk=None, calibration=None,
-            return_scores=True, verbose=True, coord_frame="meg")        
-    return {'noisy':auto_noisy_chs, 'flat':auto_flat_chs}            
+            raw_check, cross_talk=None, calibration=None, coord_frame='meg',
+            return_scores=True, verbose=True, ignore_ref=True)
+    
+        # again, finding flat/bad channels is not great, so we add another algorithm
+        # since other vendors don't mix grads and mags, we only need to do this for
+        # a single channel type
+    
+        megs = mne.pick_types(raw_check.info, meg=True)
+        # get the standard deviation for each channel, and the trimmed mean of the stds
+        stdraw_megs = np.std(raw_check._data[megs,:],axis=1)
+        stdraw_trimmedmean_megs = sp.stats.trim_mean(stdraw_megs,0.1)
+        flat_megs = np.where(stdraw_megs < stdraw_trimmedmean_megs/100)[0]
+        # need to use list comprehensions
+        flat_idx_megs = [flat_megs[i] for i in flat_megs.tolist()]
+        flats = []
+        for flat in flat_idx_megs:
+            flats.append(raw_check.info['ch_names'][megs[flat_idx_mags]])    
+    
+    auto_flat_chs = auto_flat_chs + flats
+    auto_flat_chs = list(set(auto_flat_chs))
+            
+    return {'noisy':auto_noisy_chs, 'flat':auto_flat_chs}         
 
 def raw_preprocess(raw, mains_freq=None):
     '''
@@ -548,7 +629,7 @@ def circle_plot(circle_pos=None, data=None, out_fname=None):
 
 def main(filename, outbasename=None, mains_freq=60, 
              save_preproc=False, save_ica=False, seedval=0,
-             results_dir=None, filename_raw=None):
+             results_dir=None, filename_raw=None, do_assess_bads=False, bad_channels=[]):
     '''
         Perform all of the steps to preprocess the ica maps:
         Read raw data
@@ -579,13 +660,19 @@ def main(filename, outbasename=None, mains_freq=60,
             Set the numpy random seed
         results_dir : str / path
             Path to output directory
+        do_assess_bads : Bool
+            Assess bad channels if not already done
             
     '''
     raw = read_raw(filename)
+    if len(bad_channels) > 0:
+        print('dropping bad channels\n')
+        print(bad_channels)
+        raw.drop_channels(bad_channels)
     raw = raw_preprocess(raw, mains_freq)
 
     if filename_raw is not None:
-        tmp_raw = read_raw(filename_raw, do_assess_bads=True)
+        tmp_raw = read_raw(filename_raw, do_assess_bads=do_assess_bads)
         tmp_raw = raw_preprocess(tmp_raw, mains_freq)    
         raw.info['bads'] = tmp_raw.info['bads']
         del tmp_raw
