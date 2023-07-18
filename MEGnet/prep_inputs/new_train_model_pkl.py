@@ -17,6 +17,9 @@ import numpy as np
 import copy
 import pickle
 from MEGnet.megnet_utilities import fGetStartTimesOverlap
+from numpy.random import randint
+from numpy.random import shuffle
+import copy
 
 tmp=MEGnet.__path__[0]
 
@@ -27,14 +30,23 @@ pkl_topdir = op.join(train_dir, 'Inputs', 'PKL')
 # extract_and_pickle_all_datasets(final, pkl_topdir)
 # dframe = pd.read_csv('/home/jstout/src/MegNET2022/MEGnet/prep_inputs/training/final_subjICA_dframe.csv')
 
-dframe_fname = op.join(pkl_topdir, 'final_dframe.csv')
-dframe= pd.read_csv(dframe_fname)
-dframe = dframe[~ dframe.duplicated(['Site','TaskType', 'participant_id'])]
+# dframe_fname = op.join(pkl_topdir, 'dframe_train.csv') #'final_dframe.csv')
+# dframe= pd.read_csv(dframe_fname)
+# dframe = dframe[~ dframe.duplicated(['Site','TaskType', 'participant_id'])]
 
-dframe = dframe[dframe.Site != 'NYU']
-dframe.reset_index(inplace=True)
-dframe.key=dframe.index.to_numpy()
-dframe.drop(['idx','index','Unnamed: 0.1', 'Unnamed: 0'], axis=1, inplace=True)
+# dframe = dframe[dframe.Site != 'NYU']
+# dframe.reset_index(inplace=True)
+# #KEY indexes original subj_stack
+# dframe.drop(['idx','index','Unnamed: 0.1', 'Unnamed: 0'], axis=1, inplace=True)
+
+# =============================================================================
+# Just load the proper dframe from pkl dir
+# =============================================================================
+dframe = pd.read_csv(op.join(pkl_topdir, 'final_dframe.csv'))
+
+# =============================================================================
+# Assemble time series from the 
+# =============================================================================
 
 arrTS = []
 arrSP = []
@@ -42,8 +54,8 @@ arrCL = []
 
 for idx, row in dframe.iterrows():
     input_vec = row
-    # print(indir)
     indir = op.join(pkl_topdir, f'{input_vec.Site}_{input_vec.subjid}_{input_vec.TaskType}')
+    print(indir)
     with open(op.join(indir, 'ts.pkl'),'rb') as f:
         ts = pickle.load(f)
     sp_fname = op.join(indir, 'sp.npy')
@@ -51,7 +63,8 @@ for idx, row in dframe.iterrows():
     sp = np.load(sp_fname)
     cl = np.load(cl_fname)
     arrTS.append(ts)
-    arrSP.append(cl)
+    arrSP.append(sp)
+    arrCL.append(cl)
 
 assert len(arrTS) == len(dframe)
     
@@ -77,65 +90,96 @@ def prep_ts_blocks(arrTimeSeries, overlap=3750, normalize=True):
     return testTimeSeries
 
 subj_stack = {}
-for idx, current_TS in enumerate(arrTS): 
+for idx, _ in enumerate(arrTS): 
+    current_TS = arrTS[idx]
+    current_sp = arrSP[idx]
+    current_cl = arrCL[idx]
+    #Chop temporal series into blocks
     ts_tmp = prep_ts_blocks(current_TS)
     ts_out = np.vstack([ ts_tmp[:,:,i] for i in range(ts_tmp.shape[2])])
     repeats = ts_tmp.shape[2]
-    
-    sp_out = np.vstack([ sp for i in range(repeats) ]) 
-    cl_out = np.tile(cl, repeats)
+    #Repeat the spatial maps and class    
+    sp_out = np.vstack([ current_sp for i in range(repeats) ]) 
+    cl_out = np.tile(current_cl, repeats)
+    input_series = dframe.loc[idx]
     subj_stack[idx] = {'ts':ts_out,
                        'sp':sp_out,
-                       'cl':cl_out
+                       'cl':cl_out,
+                       'id':f'{input_series.Site}_{input_series.subjid}_{input_series.TaskType}'
                        }
-
 
 assert len(subj_stack)==len(dframe)
 
-dframe_train = pd.DataFrame(dframe[dframe.HoldOut==False])
-dframe_train.reset_index(inplace=True, drop=True)
 
 
-from numpy.random import randint
-from numpy.random import shuffle
+del arrTS, arrSP, arrCL
 
-import copy
-## Reset index 
-idxs = dframe_train.key.to_list() #list(range(len(dframe_train)))
-shuffle(idxs)
-dframe_train['Shuffle_idx']=idxs
-dframe_train.sort_values(['Shuffle_idx'], inplace=True)
+def make_shuffled_nparrs(dframe_in, subj_stack):
+    '''This code takes the full subject list w/pkl data and returns arrays'''
+    idxs = dframe_in.key.to_list()
+    shuffle(idxs)
+    dframe_in['Shuffle_idx']=idxs
+    dframe_in.sort_values(['Shuffle_idx'], inplace=True)
+    
+    shuff_ts = []
+    shuff_sp = []
+    shuff_cl = []
+    
+    for idx in dframe.key.to_list():
+        shuff_ts.append(subj_stack[idx]['ts'])
+        shuff_sp.append(subj_stack[idx]['sp'])
+        shuff_cl.append(subj_stack[idx]['cl'])
+    
+    arrTS = np.vstack(shuff_ts)
+    arrSP = np.vstack(shuff_sp)
+    arrCL = np.hstack(shuff_cl)
+    return arrTS, arrSP, arrCL
+
+dframe_train=pd.DataFrame(dframe[dframe.Fold0=='Train'])
+dframe_test=pd.DataFrame(dframe[dframe.Fold0=='Test'])
+
+tr_arrTS, tr_arrSP, tr_arrCL = make_shuffled_nparrs(dframe_train, subj_stack) 
+te_arrTS, te_arrSP, te_arrCL = make_shuffled_nparrs(dframe_test, subj_stack) 
+
+#Holdout has already been processed and saved out as pickle data
+# hd_arrTS, hd_arrSP, hd_arrCL = make_shuffled_nparrs(dframe_hold, subj_stack)
+
+out_topdir = op.join(train_dir, 'Inputs', 'FULL_nparr', 'train')
+np.save(op.join(out_topdir,'tr_arrTS.npy'), tr_arrTS)
+np.save(op.join(out_topdir,'tr_arrSP.npy'), tr_arrSP)
+np.save(op.join(out_topdir,'tr_arrCL.npy'), tr_arrCL)
+
+np.save(op.join(out_topdir,'te_arrTS.npy'), te_arrTS)
+np.save(op.join(out_topdir,'te_arrSP.npy'), te_arrSP)
+np.save(op.join(out_topdir,'te_arrCL.npy'), te_arrCL)
 
 
-shuff_ts = []
-shuff_sp = []
-shuff_cl = []
+# =============================================================================
+# Load the already saved arrays
+# =============================================================================
+out_topdir = op.join(train_dir, 'Inputs', 'FULL_nparr', 'train')
+tr_arrTS = np.load(op.join(out_topdir,'tr_arrTS.npy'))
+tr_arrSP = np.load(op.join(out_topdir,'tr_arrSP.npy'))
+tr_arrCL = np.load(op.join(out_topdir, 'tr_arrCL.npy'))
 
-train_stack = []
-
-for idx in dframe.key.to_list():
-    shuff_ts.append(subj_stack[idx]['ts'])
-    shuff_sp.append(subj_stack[idx]['sp'])
-    shuff_cl.append(subj_stack[idx]['cl'])
-
-arrTS = np.vstack(shuff_ts)
-arrSP = np.vstack(shuff_sp)
-arrCL = np.hstack(shuff_cl)
+te_arrTS = np.load(op.join(out_topdir,'te_arrTS.npy'))
+te_arrSP = np.load(op.join(out_topdir,'te_arrSP.npy'))
+te_arrCL = np.load(op.join(out_topdir, 'te_arrCL.npy'))
 
 
 
 # =============================================================================
 # 
 # =============================================================================
-assert arrTS.shape[0]==arrSP.shape[0]
-assert arrCL.shape[0]==arrSP.shape[0]
+assert tr_arrTS.shape[0]==tr_arrSP.shape[0]
+assert tr_arrCL.shape[0]==tr_arrSP.shape[0]
 
 
 # =============================================================================
 # 
 # =============================================================================
-NB_EPOCH = 3 #40
-BATCH_SIZE = 1000  
+NB_EPOCH = 20 #40
+BATCH_SIZE = 300  
 VERBOSE = 1
 
 from sklearn.metrics import confusion_matrix
@@ -146,7 +190,9 @@ from tensorflow import one_hot
 from tensorflow import keras
 from sklearn.utils.class_weight import compute_class_weight
 
-class_weights = compute_class_weight('balanced', classes=np.array([0,1,2,3]), y=arrCL)
+clw = compute_class_weight('balanced', classes=np.array([0,1,2,3]), y=tr_arrCL)
+clw/=clw.min()
+class_weights={i:j for i,j in enumerate(clw)}
 
 model_fname = op.join(MEGnet.__path__[0], 'model/MEGnet_final_model.h5')
 kModel = keras.models.load_model(model_fname, compile=False)
@@ -190,10 +236,14 @@ def save_weights_and_history(history, kModel, cv_num):
     # with open(f'{epo_dir}/score', 'wb') as file_sc:
     #     pickle.dump(score[idx], file_sc)
               
-history_tmp = kModel.fit(x=dict(spatial_input=arrSP, temporal_input=arrTS), y=one_hot(arrCL,4),
+history_tmp = kModel.fit(x=dict(spatial_input=tr_arrSP, temporal_input=tr_arrTS), y=one_hot(tr_arrCL,4),
                      batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE,  
-                     # validation_data=(dict(spatial_input=SP_te, temporal_input=TS_te), one_hot(CL_te,4)),
+                     validation_data=(dict(spatial_input=te_arrSP, temporal_input=te_arrTS), one_hot(te_arrCL,4)),
                      class_weight=class_weights, callbacks=[earlystop])
+
+epochs = range(len(history_tmp.history['f1_score']))
+pylab.plot(epochs, history_tmp.history['f1_score'], '+', epochs, history_tmp.history['val_f1_score'],'.')
+pylab.legend(['F1_train','F1_val'])
 
 output_dir = op.join(MEGnet.__path__[0], 'model_nih')
 save_weights_and_history(history_tmp, kModel, 0)

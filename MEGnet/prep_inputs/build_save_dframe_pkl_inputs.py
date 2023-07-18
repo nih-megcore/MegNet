@@ -17,25 +17,6 @@ import copy
 import pickle
 
 
-tmp=MEGnet.__path__[0]
-class_table_path = op.join(tmp, 'prep_inputs', 'training', 'ICA_combined_participants.tsv')
-class_table = pd.read_csv(class_table_path, sep='\t')
-if 'Unnamed: 0' in class_table.columns:
-    class_table.drop('Unnamed: 0', axis=1, inplace=True)
-if 'idx' in class_table.columns:
-    class_table.drop('idx', axis=1, inplace=True)
-
-
-#WARN! Run make_links if ICAs folder is empty
-dataset_path = op.join(MEGnet.__path__[0], 'prep_inputs','training','ICAs')
-dsets = glob.glob(op.join(dataset_path, '*_meg'))
-dsets += glob.glob(op.join(dataset_path, '*-sss'))
-dsets += glob.glob(op.join(dataset_path, '*_wrkmem'))
-dsets += glob.glob(op.join(dataset_path, '*_rest'))
-dsets += glob.glob(op.join(dataset_path, '*_AD'))
-dsets += glob.glob(op.join(dataset_path, '*_NY'))
-datasets = pd.DataFrame(dsets, columns=['dirname'])
-
 def get_subjid(dirname):
     tmp = op.basename(dirname)
     tmp=tmp.split('_')[0]
@@ -55,21 +36,24 @@ def clean_KIT(tasktype):
         return 'rest'
     else:
         return tasktype
-    
 
-datasets['subjid'] = datasets.dirname.apply(get_subjid)
-datasets['type'] = datasets.dirname.apply(get_type)
-datasets['type'] = datasets.type.apply(clean_KIT)
+# =============================================================================
+# Only run if needed otherwise just load csv file from pkl dir    
+# =============================================================================
+tmp=MEGnet.__path__[0]
 
-final = pd.merge(class_table, datasets, left_on=['participant_id', 'TaskType'], right_on=['subjid','type'])
-dropidx=final.loc[(final.participant_id=='sub-ON12688') & (final.type_y =='rest')].index
-final = final.drop(index=dropidx)
-dropidx = final[final.TaskType=='artifact'].index
-final = final.drop(index=dropidx)
+
+dframe = pd.read_csv(op.join(tmp, 'prep_inputs', 'training','Inputs','NIH_CAM_HCP_62750','Final_3site.csv'))
+dframe = dframe.loc[::20]  #This is the longform dataframe - get back to subject level
+dframe.drop_duplicates(['participant_id', 'Site', 'TaskType'], inplace=True)
+dframe.drop(['idx','Unnamed: 0.1', 'Unnamed: 0', 'ICAnum','ClassID','key'], axis=1, inplace=True)
+final = dframe
 
 final.drop_duplicates(['Site','participant_id','TaskType'], inplace=True)
 final.reset_index(inplace=True, drop=True)
 final['key']=range(len(final)) #Set the key to index data
+
+
 
 def get_inputs(dataset_info):
     '''
@@ -116,20 +100,6 @@ def get_default_hcp():
     for i in range(1,21): spat_.append(loadmat(op.join(data_dir, f'component{str(i)}.mat'))['array'][30:-30,15:-15,:])
     spat_ = np.stack(spat_)
     return ts_, spat_
-
-def test_fPredict():
-    arrTimeSeries, arrSpatialMap = get_default_hcp()
-    output = fPredictChunkAndVoting(kModel, 
-                                    arrTimeSeries, 
-                                    arrSpatialMap, 
-                                    np.zeros((20,3)), #the code expects the Y values as it was used for performance, just put in zeros as a place holder.
-                                    intModelLen=15000, 
-                                    intOverlap=3750)
-    arrPredicionsVote, arrGTVote, arrPredictionsChunk, arrGTChunk = output
-    correct_out = [2, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 2, 0, 0]
-    actual_out = arrPredicionsVote[:,0,:].argmax(axis=1)
-    assert_vals = [np.equal(i,j) for i,j in zip(correct_out, actual_out)]
-    assert False not in assert_vals
 
 
 def _convert_strlist2intlist(strlist):
@@ -214,24 +184,11 @@ def extract_and_pickle_all_datasets(dframe, pkl_dir):
             pickle.dump(TS_tmp, f)
         np.save(sp_file, SP_tmp)
         np.save(cl_file, CLid_tmp)
+        del TS_tmp, SP_tmp, CLid_tmp, ts_pklfile, sp_file, cl_file
         
-        
-    #     SP_test.append(SP_tmp)
-    #     class_vec.append(CLid_tmp) 
-    #     for i in failed:
-    #         print(i)
-    # return np.vstack(TS_test), np.vstack(SP_test), np.stack(class_vec).flatten()
-
-
-
-
-
 
 train_dir = op.join(MEGnet.__path__[0], 'prep_inputs','training')
 np_arr_topdir = op.join(train_dir, 'Inputs')
-# arrTS_fname = op.join(np_arr_topdir, 'arrTS.npy')
-# arrSP_fname = op.join(np_arr_topdir, 'arrSP.npy')
-# arrC_ID_fname = op.join(np_arr_topdir, 'arrC_ID.npy')
 
 pkl_topdir = op.join(train_dir, 'Inputs', 'PKL')
 os.mkdir(pkl_topdir)
@@ -243,27 +200,51 @@ final.to_csv(op.join(pkl_topdir, 'final_dframe.csv'))
 # =============================================================================
 # 
 # =============================================================================
+pkl_dir = '/home/jstout/src/MegNET2022/MEGnet/prep_inputs/training/Inputs/PKL'
+pkl_topdir = pkl_dir
+dframe_hold = pd.read_csv(op.join(pkl_topdir, 'dframe_holdout.csv'))
+dframe_train = pd.read_csv(op.join(pkl_topdir, 'dframe_train.csv'))
 
 
 
 
-# # =============================================================================
-# # Save all of the data out
-# # =============================================================================
+# =============================================================================
+# Holdout
+# =============================================================================
+holds_fname = op.join(pkl_topdir, 'hold_data.pkl')
+if not op.exists(holds_fname):    
+    hold_list = []
+    for key in dframe_hold.key.to_list():
+        hold_list.append(subj_stack[key])
+    
+    holds_fname = op.join(pkl_topdir, 'hold_data.pkl')    
+    with open(holds_fname, 'wb') as f:
+        pickle.dump(hold_list, f)
+else:
+    with open(holds_fname, 'rb') as f: hold_list=pickle.load(f)
 
-# #Save all      
-# if not os.path.exists(np_arr_topdir):  
-#     os.mkdir(np_arr_topdir)
-# arrTimeSeries, arrSpatialMap, class_ID = extract_all_datasets(final)
-# assert arrTimeSeries.shape[0] == arrSpatialMap.shape[0]
-# assert class_ID.shape[0] == len(arrTimeSeries) 
-# assert final.__len__()*20 == arrTimeSeries.shape[0]
+# =============================================================================
+# Train data
+# =============================================================================
+train_fname=op.join(pkl_topdir, 'train_data.pkl') 
+if not op.exists(train_fname):
+    train_list = []
+    for key in dframe_train.key.to_list():
+        train_list.append(subj_stack[key])
+    
+    with open(train_fname, 'wb') as f:
+        pickle.dump(train_list, f)
+else:
+    with open(train_fname, 'rb') as f: train_list = pickle.load(f)
 
-# np.save(arrTS_fname, arrTimeSeries)
-# np.save(arrSP_fname, arrSpatialMap)
-# np.save(arrC_ID_fname, class_ID) 
-# final.to_csv(op.join(op.dirname(np_arr_topdir), 'final_subjICA_dframe.csv'))
 
+
+
+
+
+# =============================================================================
+# Cross Val is already part of the data frame
+# =============================================================================
 
 
 # =============================================================================

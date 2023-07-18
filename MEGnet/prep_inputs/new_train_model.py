@@ -30,6 +30,7 @@ import tensorflow as tf
 from tensorflow import one_hot
 from tensorflow import keras
 from MEGnet.megnet_utilities import fPredictChunkAndVoting, fGetStartTimesOverlap
+from sklearn.utils.class_weight import compute_class_weight
 
 if __name__=='__main__':
     import argparse
@@ -80,12 +81,12 @@ if __name__=='__main__':
 # To initialize these not from commandline
 # NORMALIZE=True ; MODEL_EXT=False ; BURN_IN = False ; FREEZE_MIDS  = False; class_weights={0:1, 1:15, 2:15, 3:15}
 tmp=MEGnet.__path__[0]
-dframe_path = op.join(tmp, 'prep_inputs','training', 'Inputs','NIH_CAM_HCP','Final_3site.csv')
+dframe_path = op.join(tmp, 'prep_inputs','training', 'Inputs','NIH_CAM_HCP_62750','Final_3site.csv')
 dframe = pd.read_csv(dframe_path)
 
 # All loaded vectors are 45000 samples in duration    
 train_dir = op.join(MEGnet.__path__[0], 'prep_inputs','training')
-np_arr_topdir = op.join(train_dir, 'Inputs', 'NIH_CAM_HCP')
+np_arr_topdir = op.join(train_dir, 'Inputs', 'NIH_CAM_HCP_62750')
 arrTS_fname = op.join(np_arr_topdir, 'arrTS.npy')
 arrSP_fname = op.join(np_arr_topdir, 'arrSP.npy')
 arrC_ID_fname = op.join(np_arr_topdir, 'arrC_ID.npy')
@@ -221,6 +222,21 @@ if FREEZE_MIDS == False:
         layer.trainable=True
 else:
     kModel=freeze_mid_layers(kModel)
+    
+    
+# =============================================================================
+# Randomize the weights
+# =============================================================================
+from numpy.random import uniform
+for idx,layer in enumerate(kModel.layers):
+    weights = layer.get_weights()
+    if weights==[]:
+        continue
+    layer_rand_w=[]
+    for sublayer in weights:
+        layer_rand_w.append(uniform(low=-1.0, high=1.0, size=sublayer.shape))
+    layer.set_weights(layer_rand_w)
+
 
 # =============================================================================
 #
@@ -248,27 +264,37 @@ def save_weights_and_history(history, kModel, cv_num):
     # with open(f'{epo_dir}/score', 'wb') as file_sc:
     #     pickle.dump(score[idx], file_sc)
 
+
+
 score_history=[]
-for cv_num in cv.keys():
-    fold = f'Fold{cv_num}'
-    tr = dframe_multi[dframe_multi[fold]=='Train'].index.values  #cv[cv_num]['train'] #Train numpy indices axis0
-    te = dframe_multi[dframe_multi[fold]=='Test'].index.values #cv[cv_num]['test'] #Test numpy indices axis0
-    
-    SP_tr, TS_tr, CL_tr   =  arrSP_multi[tr,:,:,:], arrTS_multi[tr,:], clID_multi[tr]
-    SP_te, TS_te, CL_te   =  arrSP_multi[te,:,:,:], arrTS_multi[te,:], clID_multi[te]
-                   
-    history_tmp = kModel.fit(x=dict(spatial_input=SP_tr, temporal_input=TS_tr), y=one_hot(CL_tr,4),
-                         batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE,  
-                         validation_data=(dict(spatial_input=SP_te, temporal_input=TS_te), one_hot(CL_te,4)),
-                         class_weight=class_weights, callbacks=[earlystop])
-    save_weights_and_history(history_tmp, kModel, cv_num)
-    history.append(history_tmp)
-    l_rate/=2 #Update the learning rate on each crossval
-    kModel.compile(
-            loss=keras.losses.CategoricalCrossentropy(), 
-            optimizer=keras.optimizers.Adam(learning_rate=l_rate), 
-            metrics=[f1_score, 'accuracy']
-            )
+# for cv_num in cv.keys():
+cv_num=0
+fold = f'Fold{cv_num}'
+tr = dframe_multi[dframe_multi[fold]=='Train'].index.values  #cv[cv_num]['train'] #Train numpy indices axis0
+clw = compute_class_weight('balanced', classes=np.array([0,1,2,3]), y=clID_multi[tr])
+clw/=clw.min()
+class_weights={i:j for i,j in enumerate(clw)}
+te = dframe_multi[dframe_multi[fold]=='Test'].index.values #cv[cv_num]['test'] #Test numpy indices axis0
+
+SP_tr, TS_tr, CL_tr   =  arrSP_multi[tr,:,:,:], arrTS_multi[tr,:], clID_multi[tr]
+SP_te, TS_te, CL_te   =  arrSP_multi[te,:,:,:], arrTS_multi[te,:], clID_multi[te]
+               
+history_tmp = kModel.fit(x=dict(spatial_input=SP_tr, temporal_input=TS_tr), y=one_hot(CL_tr,4),
+                     batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE,  
+                     validation_data=(dict(spatial_input=SP_te, temporal_input=TS_te), one_hot(CL_te,4)),
+                     class_weight=class_weights, callbacks=[earlystop])
+
+
+
+
+save_weights_and_history(history_tmp, kModel, cv_num)
+history.append(history_tmp)
+l_rate/=2 #Update the learning rate on each crossval
+kModel.compile(
+        loss=keras.losses.CategoricalCrossentropy(), 
+        optimizer=keras.optimizers.Adam(learning_rate=l_rate), 
+        metrics=[f1_score, 'accuracy']
+        )
     
     
     # score_history.append(fPredictChunkAndVoting(kModel, hold_ts, hold_sp, hold_clID))
