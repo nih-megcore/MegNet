@@ -9,5 +9,7 @@ include MEGnet/model_v2
 include MEGnet/model_v2/fingerprint.pb
 include MEGnet/model_v2/saved_model.pb
 include MEGnet/model_v2/variables
+include MEGnet/model_v2/variables/variables.data-00000-of-00001
+include MEGnet/model_v2/variables/variables.index
 include MEGnet/model_v2/assets
 include MEGnet/model_v2/keras_metadata.pb

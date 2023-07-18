@@ -16,7 +16,7 @@ import numpy as np
 import pandas as pd
 import pickle
 import MEGnet
-from MEGnet.megnet_utilities import fPredictChunkAndVoting, fGetStartTimesOverlap
+from MEGnet.megnet_utilities import fGetStartTimesOverlap
 from MEGnet.megnet_utilities import fPredictChunkAndVoting_parrallel as fPredictChunkAndVoting
 import tensorflow_addons
 from sklearn.metrics import confusion_matrix, f1_score
