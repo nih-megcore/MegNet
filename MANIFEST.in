@@ -4,3 +4,10 @@ include MEGnet/model/MEGnet_final_model.h5
 include MEGnet/model/MEGnet_final_model.npy
 include MEGnet/model/MEGnet_final_model.json
 include MEGnet/model
+
+include MEGnet/model_v2
+include MEGnet/model_v2/fingerprint.pb
+include MEGnet/model_v2/saved_model.pb
+include MEGnet/model_v2/variables
+include MEGnet/model_v2/assets
+include MEGnet/model_v2/keras_metadata.pb
