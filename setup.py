@@ -17,8 +17,7 @@ setuptools.setup(
         "Operating System :: Linux/Unix",
     ],
     include_package_data=True,
-    install_requires=['mne>=1.2','tensorflow', 
-        'tensorflow-addons @ git+https://github.com/tensorflow/addons.git@master'],
+    install_requires=['mne>=1.2','tensorflow'], 
     scripts=['MEGnet/prep_inputs/ICA.py'],
     extras_require={
         "training": ['openpyxl',
