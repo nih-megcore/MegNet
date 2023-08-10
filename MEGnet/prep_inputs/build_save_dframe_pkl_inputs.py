@@ -187,6 +187,9 @@ def extract_and_pickle_all_datasets(dframe, pkl_dir):
         del TS_tmp, SP_tmp, CLid_tmp, ts_pklfile, sp_file, cl_file
         
 
+# =============================================================================
+# The below was used for the 3 site processing  (run the next cell for 4 site)
+# =============================================================================
 train_dir = op.join(MEGnet.__path__[0], 'prep_inputs','training')
 np_arr_topdir = op.join(train_dir, 'Inputs')
 
@@ -195,6 +198,32 @@ os.mkdir(pkl_topdir)
 extract_and_pickle_all_datasets(final, pkl_topdir)
 
 final.to_csv(op.join(pkl_topdir, 'final_dframe.csv'))
+
+# =============================================================================
+# This is for 4 site processing !!!!!!!!!
+# =============================================================================
+tmp=pd.read_csv('final_subjICA_dframe.csv')
+tmp.drop(['Unnamed: 0', 'type_x', 'other', 'Unnamed: 7', 'SheetName', 'Scanner', 
+       'Unnamed: 6', 'eyeblink_ct', 'saccade_ct', 'ekg_ct',
+       'dirname', 'subjid', 'type_y', 'key'], axis=1, inplace=True)
+
+alldat = pd.merge(final, tmp, left_on=['participant_id','Site','TaskType'], 
+                  right_on=['participant_id','Site','TaskType'],
+                  suffixes=('','_y'))
+alldat.drop_duplicates(['participant_id', 'Site', 'TaskType'], inplace=True)
+
+dropidx = alldat[(alldat['participant_id']=='sub-100307') & (alldat['TaskType']=='rest')].index
+alldat.drop(dropidx, inplace=True)
+alldat.reset_index(inplace=True)
+alldat.key=alldat.index.values
+
+pkl_topdir = op.join(train_dir, 'Inputs', 'PKL_all')
+extract_and_pickle_all_datasets(alldat, pkl_topdir)
+alldat.to_csv(op.join(pkl_topdir, 'final_dframe.csv'))
+
+# =============================================================================
+# The Below probably does not need to be run 
+# =============================================================================
 
 
 # =============================================================================
