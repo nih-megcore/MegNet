@@ -898,7 +898,7 @@ if __name__ == '__main__':
     filename = args.filename
     mains_freq = float(args.line_freq)
     
-    main(filename, outbasename=args.outbasename, mains_freq=[mains_freq], 
+    main(filename, outbasename=args.outbasename, mains_freq=mains_freq, 
              save_preproc=True, save_ica=True, seedval=0, filename_raw=args.filename_raw,
              results_dir=args.results_dir)
     
