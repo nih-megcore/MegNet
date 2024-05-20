@@ -18,7 +18,8 @@ setuptools.setup(
     ],
     include_package_data=True,
     install_requires=['mne>=1.2','tensorflow==2.15','pandas','scikit-learn'],  
-    scripts=['MEGnet/prep_inputs/ICA.py'],
+    scripts=['MEGnet/prep_inputs/ICA.py', 
+        'MEGnet/megnet_qc_plots.py'],
     extras_require={
         "training": ['openpyxl',
             'smote-variants',
