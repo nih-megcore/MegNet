@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "MEGnet"
+description = "Package to calculate and classify ICAs using MEGNET deep learning architecture"
+readme = "README.md"
+requires-python = "<3.12"
+#keywords = ["one", "two"]
+
+authors = [
+  { name="Jeff Stout", email="stoutjd@nih.gov" },
+  { name="Allison Nugent", email="nugenta@nih.gov" },
+]
+
+license = {text = "UNLICENSE"}
+classifiers=[
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: UNLICENSE",
+        "Operating System :: Linux/Unix",
+    ]
+dependencies = [
+    'mne', 'numpy', 'scipy', 'pandas', 'munch', 'nibabel', 'joblib',  
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+testing = ['datalad','pytest','pygit2']
+training = ['imblearn']
+
+[project.scripts]
+#"ICA.py" = 
+#"process_meg.py" = "enigmeg.process_meg:main"
+
+
+[tool.setuptools.packages.find]
+include = ["MEG*"]
+exclude = ["extras*", "conda*"]
