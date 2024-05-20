@@ -21,13 +21,14 @@ classifiers=[
         "Operating System :: Linux/Unix",
     ]
 dependencies = [
-    'mne', 'numpy', 'scipy', 'pandas', 'munch', 'nibabel', 'joblib',  
+    'mne', 'numpy', 'scipy', 'pandas', 'munch', 'nibabel', 'joblib',  'tensorflow==2.15', 'scikit-learn', 
 ]
 dynamic = ["version"]
 
 [project.optional-dependencies]
 testing = ['datalad','pytest','pygit2']
-training = ['imblearn']
+training = ['imblearn', 'openxyl', 'smote-variants', 
+             'iterative-stratification  @ git+https://github.com/trent-b/iterative-stratification.git@master', 'tensorflow-addons[tensorflow]']
 
 [project.scripts]
 #"ICA.py" = 
