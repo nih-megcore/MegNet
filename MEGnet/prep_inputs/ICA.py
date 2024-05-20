@@ -897,24 +897,26 @@ if __name__ == '__main__':
     # bids_args.add_argument('-run', help='Run Number')
     # bids_args.add_argument('-task', help='Task name')
     
-    parser.add_argument('-filename', help='Path to MEG dataset')
-    parser.add_argument('-filename_raw', help='''Required for MEGIN data.
+    standard_args = parser.add_argument_group('standard')
+    standard_args.add_argument('-filename', help='Path to MEG dataset')
+    standard_args.add_argument('-results_dir', help='Path to save the results')
+    standard_args.add_argument('-line_freq', help='{60,50} Hz - AC electric frequency')
+    
+    
+    vendor_args = parser.add_argument_group('vendorArgs')
+    vendor_args.add_argument('-filename_raw', help='''Required for MEGIN data.
                         Path to the non-SSS data.  Do not use this data for 
                         non-MEGIN data.
                         ''')
-    parser.add_argument('-outbasename', 
+    vendor_args.add_argument('-outbasename', 
                         help='''Basename for output directory.  If none is 
                         provided, the basename up to the suffix of the file 
                         will be used as the folder name inside of the results_dir.
                         NOTE: this is a required flag for 4D/BTI data - since the 
                         standard filenames are not unique''', 
                         required=False)
-    parser.add_argument('-results_dir', help='Path to save the results')
-    parser.add_argument('-line_freq', help='{60,50} Hz - AC electric frequency')
-    # parser.add_argument('-clean_data', 
-    #                     help='''Perform classification of the ICA components and
-    #                     generate the ICA cleaned dataset''',
-    #                     default=True)
+
+
     args = parser.parse_args()
     
     filename = args.filename
