@@ -10,7 +10,7 @@ all: install_headless_test install_data test_headless
 
 install_test:
 	conda env remove -n megnet_test
-	mamba create --override-channels --channel=conda-forge --name=megnet_test mne pip pytest "python<3.12" -y
+	mamba create --override-channels --channel=conda-forge --name=megnet_test mne==1.5.* pip pytest "python<3.12" -y
 	($(CONDA_ACTIVATE) megnet_test ; pip install -e .['testing']  )
 
 install_data:
