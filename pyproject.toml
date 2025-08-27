@@ -21,7 +21,7 @@ classifiers=[
         "Operating System :: Linux/Unix",
     ]
 dependencies = [
-    'mne', 'numpy', 'scipy', 'pandas', 'munch', 'nibabel', 'joblib',  'tensorflow==2.15', 'scikit-learn', 
+    'mne', 'numpy', 'scipy', 'pandas', 'munch', 'nibabel', 'joblib',  'tensorflow==2.15', 'scikit-learn', 'stabilized-ica',
 ]
 dynamic = ["version"]
 

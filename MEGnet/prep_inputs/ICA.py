@@ -30,7 +30,7 @@ from mne.defaults import _INTERPOLATION_DEFAULT, _EXTRAPOLATE_DEFAULT, _BORDER_D
 from mne.utils import logger
 import mne.viz.topomap
 import mne.viz
-from mne.viz.topomap import _check_extrapolate, _make_head_outlines, _prepare_topomap, _setup_interp, _get_patch, _draw_outlines
+from mne.viz.topomap import _check_extrapolate, _make_head_outlines, _prepare_topomap, _setup_interp, _get_patch, _draw_outlines, _cont_collections
 from mne.viz.utils import _setup_vmin_vmax, _get_cmap, plt_show
 from scipy.io import savemat
 import PIL.Image
@@ -271,7 +271,7 @@ def _mod_plot_topomap(
     if patch_ is not None:
         im.set_clip_path(patch_)
         if cont is not None:
-            for col in cont.collections:
+            for col in _cont_collections(cont):
                 col.set_clip_path(patch_)
 
     pos_x, pos_y = pos.T
