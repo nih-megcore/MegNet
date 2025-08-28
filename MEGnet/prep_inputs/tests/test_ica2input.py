@@ -60,19 +60,19 @@ if not op.exists(results_dir): os.mkdir(results_dir)
 # =============================================================================
 # SSL errors with mne downloads
 # =============================================================================
-# download_path = '/tmp/test'
-# path = mne.datasets.sample.data_path(download_path)
-# megin_filename = Path(path) / 'MEG/sample/sample_audvis_raw.fif'
+download_path = '/tmp/test'
+path = mne.datasets.sample.data_path(download_path)
+megin_filename = Path(path) / 'MEG/sample/sample_audvis_raw.fif'
 
 tests_array_dir = os.path.dirname(os.path.abspath(__file__))
 
-# def test_circle_plot():
-#     raw = mne.io.read_raw_fif(megin_filename).crop(60.0).pick_types(meg='mag').load_data()
-#     ica = raw_preprocess(raw, mains_freq=60)
-#     pos_new = sensor_pos2circle(raw, ica)
-#     tmp_ = np.load(os.path.join(tests_array_dir,
-#                                 'circle_plot_pos_new.npy'))
-#     assert np.allclose(pos_new, tmp_)
+def test_circle_plot():
+    raw = mne.io.read_raw_fif(megin_filename).crop(60.0).pick_types(meg='mag').load_data()
+    ica = raw_preprocess(raw, mains_freq=60)
+    pos_new = sensor_pos2circle(raw, ica)
+    tmp_ = np.load(os.path.join(tests_array_dir,
+                                'circle_plot_pos_new.npy'))
+    assert np.allclose(pos_new, tmp_)
     
 def test_reader():
     raw = read_raw(ctf_filename)
