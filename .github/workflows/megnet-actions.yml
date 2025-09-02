@@ -24,9 +24,9 @@ jobs:
       - name: Pip Install Megnet
         shell: bash -el {0}
         run: $CONDA/bin/pip install git+https://github.com/nih-megcore/MegNet.git
-      - name: Download test data
-        shell: bash -el {0}
-        run: make get_data
+          #- name: Download test data
+          #shell: bash -el {0}
+          #run: make get_data
       - name: Pytest
         shell: bash -el {0}
         run: $CONDA/bin/pytest

@@ -887,8 +887,7 @@ def load_data(filename):                    # simple function to load raw MEG da
     return raw
 
 #%%
-    
-if __name__ == '__main__':
+def cmdline():
     import argparse
     parser = argparse.ArgumentParser() 
     # bids_args = parser.add_argument_group('BIDS')
@@ -931,6 +930,11 @@ if __name__ == '__main__':
     
     clean_ica(bad_comps=ica_dict['bads_idx'], results_dir=args.results_dir,
               raw_dataset=args.filename, outbasename=args.outbasename)
+    
+    
+if __name__ == '__main__':
+    cmdline()
+
     
     
     

@@ -7,7 +7,6 @@ name = "MEGnet"
 description = "Package to calculate and classify ICAs using MEGNET deep learning architecture"
 readme = "README.md"
 requires-python = "<=3.11" #Required for Tensorflow 
-#keywords = ["one", "two"]
 
 authors = [
   { name="Jeff Stout", email="stoutjd@nih.gov" },
@@ -31,8 +30,8 @@ training = ['imblearn', 'openxyl', 'smote-variants',
              'iterative-stratification  @ git+https://github.com/trent-b/iterative-stratification.git@master', 'tensorflow-addons[tensorflow]']
 
 [project.scripts]
-#"ICA.py" = 
-#"process_meg.py" = "enigmeg.process_meg:main"
+"ICA.py"='MEGnet.prep_inputs.ICA:cmdline'
+"megnet_qc_plots.py"='MEGnet.megnet_qc_plots:main'
 
 
 [tool.setuptools.packages.find]
