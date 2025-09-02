@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "MEGnet"
 description = "Package to calculate and classify ICAs using MEGNET deep learning architecture"
 readme = "README.md"
-requires-python = "<=3.11" #Required for Tensorflow 
+requires-python = "<3.12" #Required for Tensorflow 
 
 authors = [
   { name="Jeff Stout", email="stoutjd@nih.gov" },
