@@ -25,14 +25,15 @@ jobs:
       - name: Install Git
         run: sudo apt install git -y
       - name: Make parent test data dir
-        run: mkdir -p /data
+        run: mkdir -p /data/TEST_DATA
         shell: bash -el {0}
       - name: Download MEGnet Test Data
         uses: actions/checkout@v4
         with:
           repository: nih-megcore/megnet_test_data
           token: ${{ secrets.TESTDATA_PAT }}
-          path: /data/megnet_test_data
+      - name: Link test data into /data/TEST_DATA (so this is consistent with local testing)
+        run: ln -s ${{ GITHUB_WORKSPACE }}/megnet_test_data /data/TEST_DATA/megnet_test_data
       - name: Pip Install Megnet
         shell: bash -el {0}
         run: $CONDA/envs/test/bin/pip install git+https://github.com/nih-megcore/MegNet.git
