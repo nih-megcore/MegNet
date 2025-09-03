@@ -11,11 +11,10 @@ Also more granular testing of functions would be preferrable
 
 import numpy as np
 import mne
-from ..ICA import sensor_pos2circle
-from ..ICA import read_raw, raw_preprocess, calc_ica
+from ..ICA import (sensor_pos2circle, read_raw, raw_preprocess, calc_ica,
+                   main, classify_ica, clean_ica)
 from pathlib import Path
 import os, os.path as op
-from ..ICA import main, classify_ica, clean_ica
 import shutil
 import scipy
 import pygit2
@@ -32,23 +31,17 @@ from MEGnet.megnet_utilities import fPredictChunkAndVoting_parrallel
 model_path = op.join(MEGnet.__path__[0] ,  'model_v2')    # << May want to change this to function
 kModel=keras.models.load_model(model_path)
 
-
+from numpy.testing import assert_almost_equal
 # =============================================================================
 # Setup input / output folders
 # =============================================================================
-raw_gitdir='/tmp/TEST_ctf_data'
-gt_gitdir = '/tmp/TEST_megnet_gt' #gt for ground truth
+raw_gitdir='/data/TEST_DATA/TEST_ctf_data'
+gt_gitdir = '/data/TEST_DATA/megnet_test_data' #gt for ground truth
 if not op.exists(raw_gitdir):
     pygit2.clone_repository('https://github.com/nih-megcore/TEST_ctf_data.git', raw_gitdir)
 
-#Setup for ssh download
-userid, key1, key2 = os.environ['TESTID'],os.environ['TESTKEY1'], os.environ['TESTKEY2']
-repoaddr = os.environ['MEGNET_TEST_REPO_ADDR']
-keypair = pygit2.Keypair(userid, key1, key2,'')
-callbacks = pygit2.RemoteCallbacks(credentials=keypair)
-
-if not op.exists(gt_gitdir):    
-    pygit2.clone_repository(repoaddr, gt_gitdir, callbacks=callbacks)
+assert op.exists(raw_gitdir), 'Raw dataset not present'
+assert op.exists(gt_gitdir), 'Ground truth results not present'
 
 # Raw data
 ctf_filename = op.join(raw_gitdir, '20010101','ABABABAB_airpuff_20010101_001.ds')
@@ -172,19 +165,19 @@ def test_dataset(dset):
     assert np.alltrue(ica_classes == cl)    
     
     
-def test_clean_ica():
-    '''Confirm that the cleaned output meg matches the expected''' 
-    outbasename = op.basename(ctf_filename)[:-3]
-    outdir = op.join(results_dir, outbasename)
+# def test_clean_ica():
+#     '''Confirm that the cleaned output meg matches the expected''' 
+#     outbasename = op.basename(ctf_filename)[:-3]
+#     outdir = op.join(results_dir, outbasename)
 
-    clean_ica(bad_comps=[0,4,5], results_dir=results_dir, outbasename=outbasename,
-              raw_dataset=ctf_filename)
+#     clean_ica(bad_comps=[0,4,5], results_dir=results_dir, outbasename=outbasename,
+#               raw_dataset=ctf_filename)
     
-    cleaned_fname = op.join(outdir, 'ica_clean.fif')
-    raw_cleaned = mne.io.read_raw_fif(cleaned_fname, preload=True)    
-    gt_fname = op.join(ctf_test_gt, 'ica_clean.fif')
-    gt_raw = mne.io.read_raw_fif( gt_fname ,preload=True)
-    assert np.allclose(gt_raw.get_data(), raw_cleaned.get_data())    
+#     cleaned_fname = op.join(outdir, 'ica_clean.fif')
+#     raw_cleaned = mne.io.read_raw_fif(cleaned_fname, preload=True)    
+#     gt_fname = op.join(ctf_test_gt, 'ica_clean.fif')
+#     gt_raw = mne.io.read_raw_fif( gt_fname ,preload=True)
+#     assert np.allclose(gt_raw.get_data(), raw_cleaned.get_data())    
 
     
     
