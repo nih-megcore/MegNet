@@ -32,11 +32,12 @@ jobs:
         with:
           repository: nih-megcore/megnet_test_data
           token: ${{ secrets.TESTDATA_PAT }}
+          path: megnet_test_data
       - name: Link test data into /data/TEST_DATA
         run: ln -s ${GITHUB_WORKSPACE}/megnet_test_data /data/TEST_DATA/megnet_test_data
-      - name: Pip Install Megnet
-        shell: bash -el {0}
-        run: $CONDA/envs/test/bin/pip install git+https://github.com/nih-megcore/MegNet.git
+          #- name: Pip Install Megnet
+          #shell: bash -el {0}
+          #run: $CONDA/envs/test/bin/pip install git+https://github.com/nih-megcore/MegNet.git
           #- name: Download test data
           #shell: bash -el {0}
           #run: make get_data
