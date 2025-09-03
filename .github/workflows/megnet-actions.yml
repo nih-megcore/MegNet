@@ -19,11 +19,17 @@ jobs:
           channels: conda-forge  
           channel-priority: strict
           python-version: ${{ matrix.python-version }}
-      - name: Install MNE
-        shell: bash -el {0}
-        run: $CONDA/bin/conda install --name test --strict-channel-priority --override-channels --channel=conda-forge 'python=${{ matrix.python-version }}' pytest 'mne=${{ matrix.mne-version }}'  
+            #- name: Install MNE
+            #shell: bash -el {0}
+            #run: $CONDA/bin/conda install --name test --strict-channel-priority --override-channels --channel=conda-forge 'python=${{ matrix.python-version }}' pytest 'mne=${{ matrix.mne-version }}'  
       - name: Install Git
         run: sudo apt install git -y
+      - name: Download MEGnet Test Data
+        uses: actions/checkout@v4
+        with:
+          repository: nih-megcore/megnet_test_data
+          token: ${{ secrets.TESTDATA_PAT }}
+          path: /root/megnet_test_data
       - name: Pip Install Megnet
         shell: bash -el {0}
         run: $CONDA/envs/test/bin/pip install git+https://github.com/nih-megcore/MegNet.git
