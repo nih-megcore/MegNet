@@ -25,7 +25,7 @@ jobs:
       - name: Install Git
         run: sudo apt install git -y
       - name: Make parent test data dir
-        run: mkdir -p /data/TEST_DATA
+        run: sudo mkdir -p /data/TEST_DATA
         shell: bash -el {0}
       - name: Download MEGnet Test Data
         uses: actions/checkout@v4
