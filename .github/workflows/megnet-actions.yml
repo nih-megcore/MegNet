@@ -41,6 +41,9 @@ jobs:
       - name: Download test data
         shell: bash -el {0}
         run: make get_data
+      - name: Install extra packages for testing
+        shell: bash -el {0}
+        run: pip install pytest pygit2
       - name: Pytest
         shell: bash -el {0}
         run: $CONDA/envs/test/bin/pytest
