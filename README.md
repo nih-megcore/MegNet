@@ -1,35 +1,11 @@
 # Updates
 [![megnet-tests](https://github.com/nih-megcore/MegNet/actions/workflows/megnet-actions.yml/badge.svg)](https://github.com/nih-megcore/MegNet/actions/workflows/megnet-actions.yml)
 
-## Create conda env  - update.yml uses a python 3.9 environment
+## Install
 ```
-git clone https://github.com/nih-megcore/MegNET_2020.git
-conda env create -n MegNET2020 --file MegNET_2020/conda_environment_update.yml
-```
-## Alternate install of conda env
-```
-mamba create megnet2022  python==3.9 pip -y
-conda activate megnet2022
-mamba install conda-forge::tensorflow-gpu -y
-#Use the following if the above fails
-#CONDA_CUDA_OVERRIDE="11.8" mamba install tensorflow -c conda-forge -y
-mamba install --override-channels --channel=conda-forge mne -y
-git clone https://github.com/nih-megcore/MegNET_2020.git
-pip install .
-```
-## Biowulf install for training
-```
-mamba create -p $(pwd)/megnet2022 conda-forge::tensorflow-gpu pip conda-forge::ipython -y 
-mamba install numpy pandas scikit-learn matplotlib -c conda-forge --freeze-installed
-pip install -e . --no-deps
-pip install --no-deps git+https://github.com/trent-b/iterative-stratification.git@master
-```
-
-
-## Pip install package
-```
-conda activate MegNET2020
-pip install git+https://github.com/nih-megcore/MegNET_2020.git
+conda create -n megnet 'mne>=1.6' 'python<3.12'
+conda activate megnet
+pip install git+https://github.com/nih-megcore/MegNet.git
 ```
 
 ______________________________________________________________
