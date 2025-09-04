@@ -1,0 +1,50 @@
+name: megnet-tests
+on: [push]
+jobs:
+  Pytest:
+    name: InstallAndTest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ["ubuntu-latest"]
+        python-version: ["3.9"]
+        mne-version: ["1.6","1.7","1.8"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          auto-update-conda: true
+          auto-activate-base: false
+          channels: conda-forge  
+          channel-priority: strict
+          python-version: ${{ matrix.python-version }}
+      - name: Install MNE
+        shell: bash -el {0}
+        run: $CONDA/bin/conda install --name test --strict-channel-priority --override-channels --channel=conda-forge 'python=${{ matrix.python-version }}' pytest 'mne=${{ matrix.mne-version }}'  
+      - name: Install Git
+        run: sudo apt install git -y
+      - name: Make parent test data dir
+        run: sudo mkdir -p /data/TEST_DATA
+        shell: bash -el {0}
+      - name: Download MEGnet Test Data
+        uses: actions/checkout@v4
+        with:
+          repository: nih-megcore/megnet_test_data
+          token: ${{ secrets.MEGNET_TESTDATA }}
+          path: megnet_test_data
+      - name: Link test data into /data/TEST_DATA
+        run: sudo ln -s ${GITHUB_WORKSPACE}/megnet_test_data /data/TEST_DATA/megnet_test_data
+      - name: Pip Install Megnet
+        shell: bash -el {0}
+        run: $CONDA/envs/test/bin/pip install git+https://github.com/nih-megcore/MegNet.git
+      - name: Download raw test data
+        shell: bash -el {0}
+        run: sudo git clone https://github.com/nih-megcore/TEST_ctf_data.git /data/TEST_DATA/TEST_ctf_data
+      - name: Install extra packages for testing
+        shell: bash -el {0}
+        run: pip install pytest pygit2
+      - name: Pytest
+        shell: bash -el {0}
+        run: $CONDA/envs/test/bin/pytest
+  
