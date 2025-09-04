@@ -1,4 +1,4 @@
-# Updates
+# MEGNET
 [![megnet-tests](https://github.com/nih-megcore/MegNet/actions/workflows/megnet-actions.yml/badge.svg)](https://github.com/nih-megcore/MegNet/actions/workflows/megnet-actions.yml)
 
 ## Install
