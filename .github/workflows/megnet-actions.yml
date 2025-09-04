@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: nih-megcore/megnet_test_data
-          token: ${{ secrets.TESTDATA_PAT }}
+          token: ${{ secrets.MEGNET_TESTDATA }}
           path: megnet_test_data
       - name: Link test data into /data/TEST_DATA
         run: ln -s ${GITHUB_WORKSPACE}/megnet_test_data /data/TEST_DATA/megnet_test_data
