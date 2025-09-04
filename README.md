@@ -1,4 +1,6 @@
 # Updates
+[![megnet-tests](https://github.com/nih-megcore/MegNet/actions/workflows/megnet-actions.yml/badge.svg)](https://github.com/nih-megcore/MegNet/actions/workflows/megnet-actions.yml)
+
 ## Create conda env  - update.yml uses a python 3.9 environment
 ```
 git clone https://github.com/nih-megcore/MegNET_2020.git
