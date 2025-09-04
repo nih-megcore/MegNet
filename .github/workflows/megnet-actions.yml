@@ -34,7 +34,7 @@ jobs:
           token: ${{ secrets.MEGNET_TESTDATA }}
           path: megnet_test_data
       - name: Link test data into /data/TEST_DATA
-        run: ln -s ${GITHUB_WORKSPACE}/megnet_test_data /data/TEST_DATA/megnet_test_data
+        run: sudo ln -s ${GITHUB_WORKSPACE}/megnet_test_data /data/TEST_DATA/megnet_test_data
       - name: Pip Install Megnet
         shell: bash -el {0}
         run: $CONDA/envs/test/bin/pip install git+https://github.com/nih-megcore/MegNet.git
