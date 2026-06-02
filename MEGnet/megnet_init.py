@@ -40,7 +40,7 @@ def main():
                 repo_id='jstout211/MEGnetV2',
                 local_dir= _megnet_path,
                 local_dir_use_symlinks=False,  
-                revision='v2k3',
+                revision='c6f12ab',
                 allow_patterns=["model_v2/*"]
             )
         except BaseException as e:
