@@ -811,7 +811,7 @@ def classify_ica(results_dir=None, outbasename=None, filename=None):
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
     
     from tensorflow import keras
-    model_path = op.join(MEGnet.__path__[0] ,  'model_v2')
+    model_path = op.join(MEGnet.__path__[0] ,  'model_v2k3/model_v2.keras') 
     # This is set to use CPU in initial import
     kModel=keras.models.load_model(model_path)
     
