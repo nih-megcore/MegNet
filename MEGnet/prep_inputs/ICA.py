@@ -840,7 +840,7 @@ def clean_ica(bad_comps=None, results_dir=None, outbasename=None,
     if outbasename != None:
         file_base = outbasename #Necessary for 4D datasets
     else:
-        file_base = os.path.basename(filename)
+        file_base = os.path.basename(raw_dataset)
         file_base = os.path.splitext(file_base)[0]
     results_dir = os.path.join(results_dir, file_base)
     
@@ -929,7 +929,7 @@ def cmdline():
                             filename=filename)
     
     clean_ica(bad_comps=ica_dict['bads_idx'], results_dir=args.results_dir,
-              raw_dataset=args.filename, outbasename=args.outbasename)
+              raw_dataset=filename, outbasename=args.outbasename)
     
     
 if __name__ == '__main__':
