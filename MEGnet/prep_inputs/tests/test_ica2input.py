@@ -132,8 +132,8 @@ def test_classify_ica():
     savemat(ts_fname, {'arrICATimeSeries':ica_ts})
     # Classify the data vectors
     ica_dict = classify_ica(results_dir=results_dir, filename=ctf_filename)
-    assert np.alltrue(ica_dict['classes']==[1, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    assert np.alltrue(ica_dict['bads_idx']==[0,4,5])    
+    assert np.all(ica_dict['classes']==[1, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    assert np.all(ica_dict['bads_idx']==[0,4,5])    
 
 def get_inputs(dirname):
     classID = np.load(op.join(dirname, 'cl.npy'))
@@ -162,7 +162,7 @@ def test_dataset(dset):
     cl, arrSP, arrTS = get_inputs(dset)
     preds, probs = fPredictChunkAndVoting_parrallel(kModel, arrTS, arrSP)
     ica_classes = preds.argmax(axis=1)
-    assert np.alltrue(ica_classes == cl)    
+    assert np.all(ica_classes == cl)    
     
     
 # def test_clean_ica():
