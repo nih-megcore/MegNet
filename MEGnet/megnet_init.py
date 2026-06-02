@@ -11,7 +11,7 @@ import MEGnet
 import os, os.path as op
 
 _megnet_path = MEGnet.__path__[0]
-weights_path = op.join(_megnet_path, 'model_v2')
+weights_path = op.join(_megnet_path, 'model_v2_k3')
 
 def _check_weights():
     if op.exists(weights_path):
@@ -40,7 +40,7 @@ def main():
                 repo_id='jstout211/MEGnetV2',
                 local_dir= _megnet_path,
                 local_dir_use_symlinks=False,  
-                revision=None,
+                revision='v2k3',
                 allow_patterns=["model_v2/*"]
             )
         except BaseException as e:
