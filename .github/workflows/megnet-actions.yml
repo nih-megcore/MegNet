@@ -27,7 +27,14 @@ jobs:
       - name: Make parent test data dir
         run: sudo mkdir -p /data/TEST_DATA
         shell: bash -el {0}
+      - name: Cache MEGnet test data
+        id: cache-megnet-test-data
+        uses: actions/cache@v4
+        with:
+          path: megnet_test_data
+          key: ${{ runner.os }}-megnet-test-data-v1
       - name: Download MEGnet Test Data
+        if: steps.cache-megnet-test-data.outputs.cache-hit != 'true'
         uses: actions/checkout@v4
         with:
           repository: nih-megcore/megnet_test_data
@@ -38,13 +45,29 @@ jobs:
       - name: Pip Install Megnet
         shell: bash -el {0}
         run: $CONDA/envs/test/bin/pip install -e ${GITHUB_WORKSPACE}
+      - name: Cache raw test data
+        id: cache-raw-test-data
+        uses: actions/cache@v4
+        with:
+          path: TEST_ctf_data
+          key: ${{ runner.os }}-test-ctf-data-v1
       - name: Download raw test data
+        if: steps.cache-raw-test-data.outputs.cache-hit != 'true'
         shell: bash -el {0}
-        run: sudo git clone https://github.com/nih-megcore/TEST_ctf_data.git /data/TEST_DATA/TEST_ctf_data
+        run: git clone https://github.com/nih-megcore/TEST_ctf_data.git ${GITHUB_WORKSPACE}/TEST_ctf_data
+      - name: Link raw test data into /data/TEST_DATA
+        run: sudo ln -sfn ${GITHUB_WORKSPACE}/TEST_ctf_data /data/TEST_DATA/TEST_ctf_data
       - name: Install extra packages for testing
         shell: bash -el {0}
         run: pip install pytest pygit2
+      - name: Cache model weights
+        id: cache-model-weights
+        uses: actions/cache@v4
+        with:
+          path: MEGnet/model_v2k3
+          key: ${{ runner.os }}-megnet-model-v2k3-v1
       - name: Initialize the model weights
+        if: steps.cache-model-weights.outputs.cache-hit != 'true'
         shell: bash -el {0}
         run: $CONDA/envs/test/bin/megnet_init
       - name: Pytest
