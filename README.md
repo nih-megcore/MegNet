@@ -5,7 +5,7 @@ This repository is a fork of the code listed below in the original code referenc
 
 ## Install
 ```
-conda create -n megnet 'mne>=1.6' 'python<3.14'
+conda create -n megnet 'mne>=1.10' 'python<3.14'
 conda activate megnet
 pip install MEGnet-neuro
 ```
