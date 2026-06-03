@@ -26,7 +26,9 @@ import MEGnet
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
 os.environ["CUDA_VISIBLE_DEVICES"] = ""
-from tensorflow import keras
+os.environ["KERAS_BACKEND"]="torch"
+
+import keras
 from MEGnet.megnet_utilities import fPredictChunkAndVoting_parrallel
 model_path = op.join(MEGnet.__path__[0] ,  'model_v2k3/model_v2.keras')    # << May want to change this to function
 kModel=keras.models.load_model(model_path)
