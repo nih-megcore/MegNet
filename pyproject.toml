@@ -20,7 +20,7 @@ classifiers=[
         "Operating System :: POSIX",
     ]
 dependencies = [
-    'mne', 'numpy', 'scipy', 'pandas', 'munch', 'nibabel', 'joblib',  'torch', 'keras>3.0', 'scikit-learn', 'huggingface_hub>=0.24.0'
+    'mne>1.10', 'numpy', 'scipy', 'pandas', 'munch', 'nibabel', 'joblib',  'torch', 'keras>3.0', 'scikit-learn', 'huggingface_hub>=0.24.0'
 ]
 version = "0.3.3"
 
