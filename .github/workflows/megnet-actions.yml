@@ -19,7 +19,14 @@ jobs:
           channels: conda-forge  
           channel-priority: strict
           python-version: ${{ matrix.python-version }}
+      - name: Cache test conda environment
+        id: cache-conda-test-env
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.CONDA }}/envs/test
+          key: ${{ runner.os }}-conda-test-python-${{ matrix.python-version }}-mne-${{ matrix.mne-version }}-v1
       - name: Install MNE
+        if: steps.cache-conda-test-env.outputs.cache-hit != 'true'
         shell: bash -el {0}
         run: $CONDA/bin/conda install --name test --strict-channel-priority --override-channels --channel=conda-forge 'python=${{ matrix.python-version }}' pytest 'mne=${{ matrix.mne-version }}'  
       - name: Install Git
