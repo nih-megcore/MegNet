@@ -809,8 +809,9 @@ def classify_ica(results_dir=None, outbasename=None, filename=None):
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
-    
-    from tensorflow import keras
+    os.environ["KERAS_BACKEND"] = "torch"
+
+    import keras
     model_path = op.join(MEGnet.__path__[0] ,  'model_v2k3/model_v2.keras') 
     # This is set to use CPU in initial import
     kModel=keras.models.load_model(model_path)
