@@ -18,7 +18,7 @@ install_test:
 	fi
 	conda create --override-channels --channel=conda-forge --name=$(ENV_NAME) mne pip pytest "python<3.14" ipython -y
 	($(CONDA_ACTIVATE) megnet_test ; pip install -e .['testing']  )
-	($(CONDA_ACTIVATE) megnet_test ; pip install megnet_init  )
+	($(CONDA_ACTIVATE) megnet_test ;  megnet_init  )
 
 install_data:
 	tmp_dir=$(pwd)
