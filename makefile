@@ -8,10 +8,17 @@ CONDA_ACTIVATE=source $$(conda info --base)/etc/profile.d/conda.sh ; conda activ
 
 all: install_headless_test install_data test_headless
 
+ENV_NAME = megnet_test
 install_test:
-	conda env remove -n megnet_test
-	conda create --override-channels --channel=conda-forge --name=megnet_test mne pip pytest "python<3.14" ipython -y
+	@if conda env list | grep -q "^$(ENV_NAME) "; then \
+		echo "Removing conda environment: $(ENV_NAME)"; \
+		conda env remove -n $(ENV_NAME); \
+	else \
+		echo "Environment $(ENV_NAME) not found, skipping."; \
+	fi
+	conda create --override-channels --channel=conda-forge --name=$(ENV_NAME) mne pip pytest "python<3.14" ipython -y
 	($(CONDA_ACTIVATE) megnet_test ; pip install -e .['testing']  )
+	($(CONDA_ACTIVATE) megnet_test ; pip install megnet_init  )
 
 install_data:
 	tmp_dir=$(pwd)
