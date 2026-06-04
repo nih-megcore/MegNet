@@ -17,7 +17,7 @@ Tested compatability: (mne 1.10/1.11/1.12  & python 3.10/3.11/3.12/3.13) (py res
 ```
 conda create -n megnet 'mne>=1.10' 'python<3.14'
 conda activate megnet
-pip install 'MEGnet-neuro=0.3.2'
+pip install 'MEGnet-neuro==0.3.2'
 megnet_init #Download model weights from hugging face
 ```
 
