@@ -26,18 +26,7 @@ tmp=MEGnet.__path__[0]
 
 train_dir = op.join(MEGnet.__path__[0], 'prep_inputs','training')
 pkl_topdir = op.join(train_dir, 'Inputs', 'ICAs_pkl_all')
-# os.mkdir(pkl_topdir)
-# extract_and_pickle_all_datasets(final, pkl_topdir)
-# dframe = pd.read_csv('/home/jstout/src/MegNET2022/MEGnet/prep_inputs/training/final_subjICA_dframe.csv')
 
-# dframe_fname = op.join(pkl_topdir, 'dframe_train.csv') #'final_dframe.csv')
-# dframe= pd.read_csv(dframe_fname)
-# dframe = dframe[~ dframe.duplicated(['Site','TaskType', 'participant_id'])]
-
-# dframe = dframe[dframe.Site != 'NYU']
-# dframe.reset_index(inplace=True)
-# #KEY indexes original subj_stack
-# dframe.drop(['idx','index','Unnamed: 0.1', 'Unnamed: 0'], axis=1, inplace=True)
 
 # =============================================================================
 # Just load the proper dframe from pkl dir
@@ -63,7 +52,7 @@ assert tr_arrCL.shape[0]==tr_arrSP.shape[0]
 
 
 # =============================================================================
-# 
+# Training
 # =============================================================================
 NB_EPOCH = 30 #40
 BATCH_SIZE = 300  
@@ -71,10 +60,46 @@ VERBOSE = 1
 
 from sklearn.metrics import confusion_matrix
 import sklearn
-#from tensorflow_addons.metrics import F1Score
 import os
 os.environ['KERAS_BACKEND'] = 'torch'
 import keras
+from keras import ops
+
+class MacroF1Score(keras.metrics.Metric):
+    def __init__(self, num_classes, name='macro_f1', **kwargs):
+        super().__init__(name=name, **kwargs)
+        self.num_classes = num_classes
+        self.true_positives  = self.add_weight(shape=(num_classes,), name='tp', initializer='zeros')
+        self.false_positives = self.add_weight(shape=(num_classes,), name='fp', initializer='zeros')
+        self.false_negatives = self.add_weight(shape=(num_classes,), name='fn', initializer='zeros')
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        # y_pred: softmax output (batch, num_classes)
+        # y_true: one-hot (batch, num_classes) or integer labels
+        y_pred = ops.one_hot(ops.argmax(y_pred, axis=-1), self.num_classes)
+        y_pred = ops.cast(y_pred, 'float32')
+        y_true = ops.cast(y_true, 'float32')
+
+        tp = ops.sum(y_true * y_pred, axis=0)
+        fp = ops.sum((1 - y_true) * y_pred, axis=0)
+        fn = ops.sum(y_true * (1 - y_pred), axis=0)
+
+        self.true_positives.assign(self.true_positives + tp)
+        self.false_positives.assign(self.false_positives + fp)
+        self.false_negatives.assign(self.false_negatives + fn)
+
+    def result(self):
+        p = self.true_positives / (self.true_positives + self.false_positives + 1e-7)
+        r = self.true_positives / (self.true_positives + self.false_negatives + 1e-7)
+        f1_per_class = 2 * (p * r) / (p + r + 1e-7)
+        return ops.mean(f1_per_class)
+
+    def reset_state(self):
+        self.true_positives.assign(ops.zeros((self.num_classes,)))
+        self.false_positives.assign(ops.zeros((self.num_classes,)))
+        self.false_negatives.assign(ops.zeros((self.num_classes,)))
+
+
 
 # import tensorflow as tf
 # from tensorflow import one_hot
@@ -104,7 +129,7 @@ from sklearn.metrics import f1_score
 kModel.compile(
     loss=keras.losses.CategoricalCrossentropy(), 
     optimizer=keras.optimizers.Adam(learning_rate=1e-3), 
-    metrics=['accuracy'] #[f1_score, 'accuracy']
+    metrics=['accuracy', MacroF1Score(num_classes=4)]
     )
 
 earlystop = keras.callbacks.EarlyStopping(monitor='loss',
@@ -120,7 +145,7 @@ earlystop = keras.callbacks.EarlyStopping(monitor='loss',
 from sklearn.preprocessing import LabelBinarizer
 # Initialize the binarizer
 tr_lb = LabelBinarizer()
-# Fit and transform
+# Fit and transform to One Hot Encoding
 tr_encoded = tr_lb.fit_transform(tr_arrCL)
 
 te_lb = LabelBinarizer()
