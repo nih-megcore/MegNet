@@ -66,12 +66,24 @@ import keras
 from keras import ops
 
 class MacroF1Score(keras.metrics.Metric):
-    def __init__(self, num_classes, name='macro_f1', **kwargs):
+    def __init__(self, num_classes, class_weights=None, name='macro_f1', **kwargs):
         super().__init__(name=name, **kwargs)
         self.num_classes = num_classes
+        self.class_weights = self._format_class_weights(class_weights)
         self.true_positives  = self.add_weight(shape=(num_classes,), name='tp', initializer='zeros')
         self.false_positives = self.add_weight(shape=(num_classes,), name='fp', initializer='zeros')
         self.false_negatives = self.add_weight(shape=(num_classes,), name='fn', initializer='zeros')
+
+    def _format_class_weights(self, class_weights):
+        if class_weights is None:
+            return None
+        if isinstance(class_weights, dict):
+            class_weights = [class_weights[idx] for idx in range(self.num_classes)]
+        if len(class_weights) != self.num_classes:
+            raise ValueError(
+                f'class_weights must have {self.num_classes} entries; got {len(class_weights)}'
+            )
+        return tuple(float(weight) for weight in class_weights)
 
     def update_state(self, y_true, y_pred, sample_weight=None):
         # y_pred: softmax output (batch, num_classes)
@@ -92,6 +104,9 @@ class MacroF1Score(keras.metrics.Metric):
         p = self.true_positives / (self.true_positives + self.false_positives + 1e-7)
         r = self.true_positives / (self.true_positives + self.false_negatives + 1e-7)
         f1_per_class = 2 * (p * r) / (p + r + 1e-7)
+        if self.class_weights is not None:
+            class_weights = ops.convert_to_tensor(self.class_weights, dtype=f1_per_class.dtype)
+            return ops.sum(f1_per_class * class_weights) / (ops.sum(class_weights) + 1e-7)
         return ops.mean(f1_per_class)
 
     def reset_state(self):
@@ -129,7 +144,7 @@ from sklearn.metrics import f1_score
 kModel.compile(
     loss=keras.losses.CategoricalCrossentropy(), 
     optimizer=keras.optimizers.Adam(learning_rate=1e-3), 
-    metrics=['accuracy', MacroF1Score(num_classes=4)]
+    metrics=['accuracy', MacroF1Score(num_classes=4, class_weights=class_weights)]
     )
 
 earlystop = keras.callbacks.EarlyStopping(monitor='loss',
