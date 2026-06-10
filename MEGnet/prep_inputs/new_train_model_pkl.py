@@ -25,7 +25,7 @@ tmp=MEGnet.__path__[0]
 
 
 train_dir = op.join(MEGnet.__path__[0], 'prep_inputs','training')
-pkl_topdir = op.join(train_dir, 'Inputs', 'PKL')
+pkl_topdir = op.join(train_dir, 'Inputs', 'ICAs_pkl_all')
 # os.mkdir(pkl_topdir)
 # extract_and_pickle_all_datasets(final, pkl_topdir)
 # dframe = pd.read_csv('/home/jstout/src/MegNET2022/MEGnet/prep_inputs/training/final_subjICA_dframe.csv')
@@ -45,132 +45,19 @@ pkl_topdir = op.join(train_dir, 'Inputs', 'PKL')
 dframe = pd.read_csv(op.join(pkl_topdir, 'final_dframe.csv'))
 
 # =============================================================================
-# Assemble time series from the 
-# =============================================================================
-
-arrTS = []
-arrSP = []
-arrCL = []
-
-for idx, row in dframe.iterrows():
-    input_vec = row
-    indir = op.join(pkl_topdir, f'{input_vec.Site}_{input_vec.subjid}_{input_vec.TaskType}')
-    print(indir)
-    with open(op.join(indir, 'ts.pkl'),'rb') as f:
-        ts = pickle.load(f)
-    sp_fname = op.join(indir, 'sp.npy')
-    cl_fname = op.join(indir, 'cl.npy')
-    sp = np.load(sp_fname)
-    cl = np.load(cl_fname)
-    arrTS.append(ts)
-    arrSP.append(sp)
-    arrCL.append(cl)
-
-assert len(arrTS) == len(dframe)
-    
-def prep_ts_blocks(arrTimeSeries, overlap=3750, normalize=True):
-    '''Cut the data into 1min blocks and temporally normalize each block
-    Currently assuming all datasets are the same number of samples'''
-    # Chunk Data
-    # num_blocks = 1 + (arrTimeSeries.shape[1] - 15000) // overlap
-    # starts = np.arange(num_blocks)*3750
-    starts = fGetStartTimesOverlap(arrTimeSeries.shape[1])
-    blocks = np.zeros([arrTimeSeries.shape[0], 15000, len(starts)], dtype=float)
-    for i,start in enumerate(starts): 
-        blocks[:,:, i] = copy.deepcopy(arrTimeSeries[:,start:start+15000]) 
-    
-    if normalize==True:
-        testTimeSeries = blocks #copy.deepcopy(arrScanTimeSeries[intStartTime:intStartTime+intModelLen])
-        min_vals = np.min(testTimeSeries, axis=1, keepdims=True)
-        max_vals = np.max(testTimeSeries, axis=1, keepdims=True)
-        scaling_factors = 8 / (max_vals - min_vals)
-        mean_vals = np.mean(testTimeSeries, axis=1, keepdims=True)
-        testTimeSeries = testTimeSeries - mean_vals
-        testTimeSeries = testTimeSeries * scaling_factors 
-    return testTimeSeries
-
-subj_stack = {}
-for idx, _ in enumerate(arrTS): 
-    current_TS = arrTS[idx]
-    current_sp = arrSP[idx]
-    current_cl = arrCL[idx]
-    #Chop temporal series into blocks
-    ts_tmp = prep_ts_blocks(current_TS)
-    ts_out = np.vstack([ ts_tmp[:,:,i] for i in range(ts_tmp.shape[2])])
-    repeats = ts_tmp.shape[2]
-    #Repeat the spatial maps and class    
-    sp_out = np.vstack([ current_sp for i in range(repeats) ]) 
-    cl_out = np.tile(current_cl, repeats)
-    input_series = dframe.loc[idx]
-    subj_stack[idx] = {'ts':ts_out,
-                       'sp':sp_out,
-                       'cl':cl_out,
-                       'id':f'{input_series.Site}_{input_series.subjid}_{input_series.TaskType}'
-                       }
-
-assert len(subj_stack)==len(dframe)
-
-
-
-del arrTS, arrSP, arrCL
-
-def make_shuffled_nparrs(dframe_in, subj_stack):
-    '''This code takes the full subject list w/pkl data and returns arrays'''
-    idxs = dframe_in.key.to_list()
-    shuffle(idxs)
-    dframe_in['Shuffle_idx']=idxs
-    dframe_in.sort_values(['Shuffle_idx'], inplace=True)
-    
-    shuff_ts = []
-    shuff_sp = []
-    shuff_cl = []
-    
-    for idx in dframe.key.to_list():
-        shuff_ts.append(subj_stack[idx]['ts'])
-        shuff_sp.append(subj_stack[idx]['sp'])
-        shuff_cl.append(subj_stack[idx]['cl'])
-    
-    arrTS = np.vstack(shuff_ts)
-    arrSP = np.vstack(shuff_sp)
-    arrCL = np.hstack(shuff_cl)
-    return arrTS, arrSP, arrCL
-
-dframe_train=pd.DataFrame(dframe[dframe.Fold0=='Train'])
-dframe_test=pd.DataFrame(dframe[dframe.Fold0=='Test'])
-
-tr_arrTS, tr_arrSP, tr_arrCL = make_shuffled_nparrs(dframe_train, subj_stack) 
-te_arrTS, te_arrSP, te_arrCL = make_shuffled_nparrs(dframe_test, subj_stack) 
-
-#Holdout has already been processed and saved out as pickle data
-# hd_arrTS, hd_arrSP, hd_arrCL = make_shuffled_nparrs(dframe_hold, subj_stack)
-
-out_topdir = op.join(train_dir, 'Inputs', 'FULL_nparr', 'train')
-np.save(op.join(out_topdir,'tr_arrTS.npy'), tr_arrTS)
-np.save(op.join(out_topdir,'tr_arrSP.npy'), tr_arrSP)
-np.save(op.join(out_topdir,'tr_arrCL.npy'), tr_arrCL)
-
-np.save(op.join(out_topdir,'te_arrTS.npy'), te_arrTS)
-np.save(op.join(out_topdir,'te_arrSP.npy'), te_arrSP)
-np.save(op.join(out_topdir,'te_arrCL.npy'), te_arrCL)
-
-
-# =============================================================================
 # Load the already saved arrays
 # =============================================================================
-out_topdir = op.join(train_dir, 'Inputs', 'FULL_nparr', 'train')
+out_topdir = op.join(train_dir, 'Inputs', 'FULL_nparr_surrogate', 'train')
 tr_arrTS = np.load(op.join(out_topdir,'tr_arrTS.npy'))
 tr_arrSP = np.load(op.join(out_topdir,'tr_arrSP.npy'))
 tr_arrCL = np.load(op.join(out_topdir, 'tr_arrCL.npy'))
 
+#The test data should not be augmented - Load from the original folder
+out_topdir = op.join(train_dir, 'Inputs', 'FULL_nparr', 'test')
 te_arrTS = np.load(op.join(out_topdir,'te_arrTS.npy'))
 te_arrSP = np.load(op.join(out_topdir,'te_arrSP.npy'))
 te_arrCL = np.load(op.join(out_topdir, 'te_arrCL.npy'))
 
-
-
-# =============================================================================
-# 
-# =============================================================================
 assert tr_arrTS.shape[0]==tr_arrSP.shape[0]
 assert tr_arrCL.shape[0]==tr_arrSP.shape[0]
 
@@ -178,23 +65,27 @@ assert tr_arrCL.shape[0]==tr_arrSP.shape[0]
 # =============================================================================
 # 
 # =============================================================================
-NB_EPOCH = 20 #40
+NB_EPOCH = 30 #40
 BATCH_SIZE = 300  
 VERBOSE = 1
 
 from sklearn.metrics import confusion_matrix
 import sklearn
-from tensorflow_addons.metrics import F1Score
-import tensorflow as tf
-from tensorflow import one_hot
-from tensorflow import keras
+#from tensorflow_addons.metrics import F1Score
+import os
+os.environ['KERAS_BACKEND'] = 'torch'
+import keras
+
+# import tensorflow as tf
+# from tensorflow import one_hot
+# from tensorflow import keras
 from sklearn.utils.class_weight import compute_class_weight
 
 clw = compute_class_weight('balanced', classes=np.array([0,1,2,3]), y=tr_arrCL)
 clw/=clw.min()
 class_weights={i:j for i,j in enumerate(clw)}
 
-model_fname = op.join(MEGnet.__path__[0], 'model/MEGnet_final_model.h5')
+model_fname = op.join(MEGnet.__path__[0], 'model_v2k3/model_v2.keras')
 kModel = keras.models.load_model(model_fname, compile=False)
 
 # class_weights = {0:1, 1:15, 2:15, 3:15}
@@ -208,22 +99,32 @@ for idx,layer in enumerate(kModel.layers):
         layer_rand_w.append(uniform(low=-1.0, high=1.0, size=sublayer.shape))
     layer.set_weights(layer_rand_w)
 
-
-f1_score=F1Score(4, average='macro')
+from sklearn.metrics import f1_score
+# f1_score=F1Score(4, average='macro')
 kModel.compile(
     loss=keras.losses.CategoricalCrossentropy(), 
     optimizer=keras.optimizers.Adam(learning_rate=1e-3), 
-    metrics=[f1_score, 'accuracy']
+    metrics=['accuracy'] #[f1_score, 'accuracy']
     )
 
-earlystop = tf.keras.callbacks.EarlyStopping(monitor='loss',
-                                 patience=4,
+earlystop = keras.callbacks.EarlyStopping(monitor='loss',
+                                 patience=6,
                                  restore_best_weights=True)
 
 
 
+# from sklearn.preprocessing import OneHotEncoder
+# encoder = OneHotEncoder()#sparse_output=False)
+# encoded_X = encoder.fit_transform(tr_arrCL)
 
+from sklearn.preprocessing import LabelBinarizer
+# Initialize the binarizer
+tr_lb = LabelBinarizer()
+# Fit and transform
+tr_encoded = tr_lb.fit_transform(tr_arrCL)
 
+te_lb = LabelBinarizer()
+te_encoded = te_lb.fit_transform(te_arrCL)
 
 
 def save_weights_and_history(history, kModel, cv_num):
@@ -236,17 +137,24 @@ def save_weights_and_history(history, kModel, cv_num):
     # with open(f'{epo_dir}/score', 'wb') as file_sc:
     #     pickle.dump(score[idx], file_sc)
               
-history_tmp = kModel.fit(x=dict(spatial_input=tr_arrSP, temporal_input=tr_arrTS), y=one_hot(tr_arrCL,4),
+history_tmp = kModel.fit(x=dict(spatial_input=tr_arrSP, temporal_input=tr_arrTS), y=tr_encoded,   #one_hot(tr_arrCL,4),
                      batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE,  
-                     validation_data=(dict(spatial_input=te_arrSP, temporal_input=te_arrTS), one_hot(te_arrCL,4)),
+                     validation_data=(dict(spatial_input=te_arrSP, temporal_input=te_arrTS), te_encoded), #one_hot(te_arrCL,4)),
                      class_weight=class_weights, callbacks=[earlystop])
 
-epochs = range(len(history_tmp.history['f1_score']))
-pylab.plot(epochs, history_tmp.history['f1_score'], '+', epochs, history_tmp.history['val_f1_score'],'.')
-pylab.legend(['F1_train','F1_val'])
+# epochs = range(len(history_tmp.history['f1_score']))
+# pylab.plot(epochs, history_tmp.history['f1_score'], '+', epochs, history_tmp.history['val_f1_score'],'.')
+# pylab.legend(['F1_train','F1_val'])
 
-output_dir = op.join(MEGnet.__path__[0], 'model_nih')
-save_weights_and_history(history_tmp, kModel, 0)
+output_dir='/vf/users/EnigmaMeg/MEGNET/KEEP_TEST_NPY2/MODELFIT/v2_surrogate1'
+if not op.exists(output_dir): os.makedirs(output_dir)
+with open(f'{output_dir}/history.pkl', 'wb') as file_pi:
+    pickle.dump(history_tmp.history, file_pi)
+kModel.save(f'{output_dir}/model.keras')
+
+
+# output_dir = op.join(MEGnet.__path__[0], 'model_nih')
+# save_weights_and_history(history_tmp, kModel, 0)
 
 
 
