@@ -141,9 +141,19 @@ for idx,layer in enumerate(kModel.layers):
 
 from sklearn.metrics import f1_score
 # f1_score=F1Score(4, average='macro')
+
+# Keras has CosineDecayRestarts built in
+lr_schedule = keras.optimizers.schedules.CosineDecayRestarts(
+    initial_learning_rate=1e-3,
+    first_decay_steps=500,
+    t_mul=2.0,   # each restart cycle is 2x longer
+    m_mul=0.9,   # each restart LR is 90% of previous
+)
+
+
 kModel.compile(
     loss=keras.losses.CategoricalCrossentropy(), 
-    optimizer=keras.optimizers.Adam(learning_rate=1e-3), 
+    optimizer=keras.optimizers.Adam(lr_schedule), 
     metrics=['accuracy', MacroF1Score(num_classes=4, class_weights=class_weights)]
     )
 
@@ -177,9 +187,9 @@ def save_weights_and_history(history, kModel, cv_num):
     # with open(f'{epo_dir}/score', 'wb') as file_sc:
     #     pickle.dump(score[idx], file_sc)
               
-history_tmp = kModel.fit(x=dict(spatial_input=tr_arrSP, temporal_input=tr_arrTS), y=tr_encoded,   #one_hot(tr_arrCL,4),
+history_tmp = kModel.fit(x=dict(spatial_input=tr_arrSP, temporal_input=tr_arrTS), y=tr_encoded,   
                      batch_size=BATCH_SIZE, epochs=NB_EPOCH, verbose=VERBOSE,  
-                     validation_data=(dict(spatial_input=te_arrSP, temporal_input=te_arrTS), te_encoded), #one_hot(te_arrCL,4)),
+                     validation_data=(dict(spatial_input=te_arrSP, temporal_input=te_arrTS), te_encoded), 
                      class_weight=class_weights, callbacks=[earlystop])
 
 # epochs = range(len(history_tmp.history['f1_score']))
