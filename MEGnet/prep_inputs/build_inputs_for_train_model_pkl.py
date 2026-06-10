@@ -125,9 +125,9 @@ for idx, _ in enumerate(arrTS):
     #Generate the augmented data
     aug_ts, aug_sp, aug_cl = group_ts_augmenter(ts_out, sp_out, cl_out)
     aug_ts2, aug_sp2, aug_cl2 = group_ts_augmenter(ts_out, sp_out, cl_out)
-    ts_out = np.concat([ts_out, aug_ts], axis=0)
-    sp_out = np.concat([sp_out, aug_sp], axis=0)
-    cl_out = np.concat([cl_out, aug_cl], axis=0)
+    ts_out = np.concat([ts_out, aug_ts, aug_ts2], axis=0)
+    sp_out = np.concat([sp_out, aug_sp, aug_sp2], axis=0)
+    cl_out = np.concat([cl_out, aug_cl, aug_cl2], axis=0)
     
     subj_stack[idx] = {'ts':ts_out,
                        'sp':sp_out,
@@ -170,7 +170,7 @@ te_arrTS, te_arrSP, te_arrCL = make_shuffled_nparrs(dframe_test, subj_stack)
 #Holdout has already been processed and saved out as pickle data
 # hd_arrTS, hd_arrSP, hd_arrCL = make_shuffled_nparrs(dframe_hold, subj_stack)
 
-out_topdir = op.join(train_dir, 'Inputs', 'FULL_nparr_surrogate', 'train')
+out_topdir = op.join(train_dir, 'Inputs', 'FULL_nparr_surrogate4', 'train')
 np.save(op.join(out_topdir,'tr_arrTS.npy'), tr_arrTS)
 np.save(op.join(out_topdir,'tr_arrSP.npy'), tr_arrSP)
 np.save(op.join(out_topdir,'tr_arrCL.npy'), tr_arrCL)
