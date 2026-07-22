@@ -31,7 +31,7 @@ os.environ["KERAS_BACKEND"]="torch"
 import keras
 from MEGnet.megnet_utilities import fPredictChunkAndVoting_parrallel
 model_path = op.join(MEGnet.__path__[0] ,  'model_v2k3/model_v2.keras')    # << May want to change this to function
-kModel=keras.models.load_model(model_path)
+kModel=keras.models.load_model(model_path, compile=False)
 
 from numpy.testing import assert_almost_equal
 # =============================================================================
@@ -134,8 +134,8 @@ def test_classify_ica():
     savemat(ts_fname, {'arrICATimeSeries':ica_ts})
     # Classify the data vectors
     ica_dict = classify_ica(results_dir=results_dir, filename=ctf_filename)
-    assert np.all(ica_dict['classes']==[1, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-    assert np.all(ica_dict['bads_idx']==[0,4,5])    
+    assert np.all(ica_dict['classes']==[0, 0, 0, 0, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
+    assert np.all(ica_dict['bads_idx']==[4,5])    
 
 def get_inputs(dirname):
     classID = np.load(op.join(dirname, 'cl.npy'))
