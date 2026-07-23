@@ -49,6 +49,26 @@ raw_typelist = [RawCTF, RawKIT, RawBTi, Raw]
 # Helper Functions
 # =============================================================================
 
+def _set_backend():
+    if "KERAS_BACKEND" not in os.environ:
+        try:
+            import tensorflow  # noqa: F401
+            os.environ["KERAS_BACKEND"] = "tensorflow"
+        except ImportError:
+            try:
+                import torch  # noqa: F401
+                os.environ["KERAS_BACKEND"] = "torch"
+            except ImportError:
+                try:
+                    import jax  # noqa: F401
+                    os.environ["KERAS_BACKEND"] = "jax"
+                except ImportError:
+                    raise ImportError(
+                        "No Keras backend found. Install one of: "
+                        "tensorflow, torch, or jax."
+                    )
+
+
 def _require_model_weights():
     """Return the model path after checking its presence and version."""
     if megnet_init._check_weights():
@@ -826,7 +846,7 @@ def classify_ica(results_dir=None, outbasename=None, filename=None):
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
-    os.environ["KERAS_BACKEND"] = "torch"
+    _set_backend() #Set the appropriate backend to TF/Torch/Jax if available
 
     import keras
     # This is set to use CPU in initial import
