@@ -14,6 +14,7 @@ import os, os.path as op
 
 _megnet_path = MEGnet.__path__[0]
 weights_path = op.join(_megnet_path, 'model_v2k3')
+model_path = op.join(weights_path, 'model_v2.keras')
 config_path = op.join(weights_path, 'config.json')
 min_model_version = 'v2.2'
 
@@ -26,7 +27,7 @@ def _version_tuple(version):
 
 
 def _check_weights():
-    if not op.exists(config_path):
+    if not op.isfile(model_path) or not op.isfile(config_path):
         return False
 
     try:
@@ -44,7 +45,7 @@ def _check_weights():
     if model_version_tuple is None or min_model_version_tuple is None:
         return False
 
-    return model_version_tuple > min_model_version_tuple
+    return model_version_tuple >= min_model_version_tuple
 
 
 def _download_weights():
