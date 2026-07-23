@@ -846,6 +846,10 @@ def classify_ica(results_dir=None, outbasename=None, filename=None):
     arrSP = np.stack([loadmat(i)['array'] for i in arrSP_fnames])
     preds, probs = fPredictChunkAndVoting_parrallel(kModel, arrTS, arrSP)
     meg_rest_ica_classes = preds.argmax(axis=1)
+    np.save(
+        op.join(results_dir, 'megnet_classification.npy'),
+        meg_rest_ica_classes,
+    )
     ica_comps_toremove = [index for index, value in enumerate(meg_rest_ica_classes) if value in [1, 2, 3]]
     return {'classes':meg_rest_ica_classes,
             'bads_idx': ica_comps_toremove}
