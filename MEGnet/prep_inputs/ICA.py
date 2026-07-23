@@ -34,7 +34,7 @@ from mne.viz.topomap import _check_extrapolate, _make_head_outlines, _prepare_to
 from mne.viz.utils import _setup_vmin_vmax, _get_cmap, plt_show
 from scipy.io import savemat
 import PIL.Image
-import MEGnet
+from MEGnet import megnet_init
 from MEGnet.megnet_utilities import fPredictChunkAndVoting_parrallel
 import functools
 
@@ -48,6 +48,19 @@ raw_typelist = [RawCTF, RawKIT, RawBTi, Raw]
 # =============================================================================
 # Helper Functions
 # =============================================================================
+
+def _require_model_weights():
+    """Return the model path after checking its presence and version."""
+    if megnet_init._check_weights():
+        return megnet_init.model_path
+
+    raise RuntimeError(
+        'MEGnet model weights are missing or incompatible. Expected '
+        f'{megnet_init.model_path} and a config.json model_version at least '
+        f'{megnet_init.min_model_version}. Run `megnet_init` to download '
+        'compatible model weights.'
+    )
+
 
 # function to transform Cartesian coordinates to spherical coordinates
 # theta = azimuth
@@ -656,9 +669,9 @@ def circle_plot(circle_pos=None, data=None, out_fname=None):
     #return matrix_out
     
 
-def main(filename, outbasename=None, mains_freq=60.0, 
+def main(filename, results_dir, outbasename=None, mains_freq=60.0,
              save_preproc=False, save_ica=False, seedval=0,
-             results_dir=None, filename_raw=None, do_assess_bads=False,
+             filename_raw=None, do_assess_bads=False,
              bad_channels=[]):
     '''
         Perform all of the steps to preprocess the ica maps:
@@ -674,6 +687,8 @@ def main(filename, outbasename=None, mains_freq=60.0,
         
         filename : str or Raw MNE data object
             Path to file
+        results_dir : str / path
+            Path to output directory
         filename_raw : str
             Required for MEGIN datasets
             Path to file
@@ -688,12 +703,12 @@ def main(filename, outbasename=None, mains_freq=60.0,
             Save the ica output 
         seedval : Int
             Set the numpy random seed
-        results_dir : str / path
-            Path to output directory
         do_assess_bads : Bool
             Assess bad channels if not already done
             
     '''
+    _require_model_weights()
+
     if (type(filename) == str) | (type(filename) == PosixPath):
         raw = read_raw(filename)
     elif type(filename) in raw_typelist:
@@ -806,13 +821,14 @@ def classify_ica(results_dir=None, outbasename=None, filename=None):
 
     '''
     from scipy.io import loadmat
+    model_path = _require_model_weights()
+
     os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
     os.environ["CUDA_VISIBLE_DEVICES"] = ""
     os.environ["KERAS_BACKEND"] = "torch"
 
     import keras
-    model_path = op.join(MEGnet.__path__[0] ,  'model_v2k3/model_v2.keras') 
     # This is set to use CPU in initial import
     kModel=keras.models.load_model(model_path, compile=False)
     
@@ -830,6 +846,10 @@ def classify_ica(results_dir=None, outbasename=None, filename=None):
     arrSP = np.stack([loadmat(i)['array'] for i in arrSP_fnames])
     preds, probs = fPredictChunkAndVoting_parrallel(kModel, arrTS, arrSP)
     meg_rest_ica_classes = preds.argmax(axis=1)
+    np.save(
+        op.join(results_dir, 'megnet_classification.npy'),
+        meg_rest_ica_classes,
+    )
     ica_comps_toremove = [index for index, value in enumerate(meg_rest_ica_classes) if value in [1, 2, 3]]
     return {'classes':meg_rest_ica_classes,
             'bads_idx': ica_comps_toremove}
@@ -899,7 +919,8 @@ def cmdline():
     
     standard_args = parser.add_argument_group('standard')
     standard_args.add_argument('-filename', help='Path to MEG dataset')
-    standard_args.add_argument('-results_dir', help='Path to save the results')
+    standard_args.add_argument(
+        '-results_dir', required=True, help='Path to save the results')
     standard_args.add_argument('-line_freq', help='{60,50} Hz - AC electric frequency')
     
     
@@ -942,4 +963,3 @@ if __name__ == '__main__':
     
     
     
-
