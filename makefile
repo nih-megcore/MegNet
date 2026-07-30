@@ -12,7 +12,7 @@ ENV_NAME = megnet_test
 install_test:
 	@if conda env list | grep -q "^$(ENV_NAME) "; then \
 		echo "Removing conda environment: $(ENV_NAME)"; \
-		conda env remove -n $(ENV_NAME); \
+		conda env remove -n $(ENV_NAME) -y; \
 	else \
 		echo "Environment $(ENV_NAME) not found, skipping."; \
 	fi
