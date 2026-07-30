@@ -82,6 +82,19 @@ def _require_model_weights():
     )
 
 
+def load_keras_model():
+    """Load and return the MEGnet Keras model configured to use the CPU."""
+    model_path = _require_model_weights()
+
+    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
+    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"  # see issue #152
+    os.environ["CUDA_VISIBLE_DEVICES"] = ""
+    _set_backend()
+
+    import keras
+    return keras.models.load_model(model_path, compile=False)
+
+
 # function to transform Cartesian coordinates to spherical coordinates
 # theta = azimuth
 # phi = elevation
@@ -826,7 +839,7 @@ def main(filename, results_dir, outbasename=None, mains_freq=60.0,
 def classify_ica(results_dir=None, outbasename=None, filename=None):
     '''
     Run the ICA timeseries and spatial maps generated during the main processing
-    through the MEGNET tensorflow model (using the CPU)
+    through the MEGNET keras model (using the CPU)
 
     Parameters
     ----------
@@ -841,16 +854,7 @@ def classify_ica(results_dir=None, outbasename=None, filename=None):
 
     '''
     from scipy.io import loadmat
-    model_path = _require_model_weights()
-
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2' 
-    os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"   # see issue #152
-    os.environ["CUDA_VISIBLE_DEVICES"] = ""
-    _set_backend() #Set the appropriate backend to TF/Torch/Jax if available
-
-    import keras
-    # This is set to use CPU in initial import
-    kModel=keras.models.load_model(model_path, compile=False)
+    kModel = load_keras_model()
     
     #Set output names
     if outbasename != None:
