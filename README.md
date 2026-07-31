@@ -12,6 +12,19 @@ pip install MEGnet-neuro
 megnet_init  #Download model weights from hugging face
 ```
 
+## Conda package
+
+The conda-forge v1 recipe and local build instructions are in
+[`conda/`](conda/README.md). Until the recipe is accepted and published by
+conda-forge, build it locally with `rattler-build`. After publication, install
+the package with:
+
+```bash
+conda create -n megnet -c conda-forge megnet-neuro
+conda activate megnet
+megnet_init  # Download model weights from Hugging Face
+```
+
 ## Install (tensorflow based version) 
 Tested compatability: (mne 1.10/1.11/1.12  & python 3.10/3.11/3.12/3.13) (py restricted by tensorflow builds)
 ```
@@ -26,4 +39,3 @@ https://github.com/DeepLearningForPrecisionHealthLab/MegNET_2020 <br>
 Manuscript available: https://pubmed.ncbi.nlm.nih.gov/34274419/ <br>
 DOI: https://doi.org/10.1016/j.neuroimage.2021.118402 <br>
 PMID: 34274419 <br>
-

@@ -20,7 +20,9 @@ classifiers=[
         "Operating System :: POSIX",
     ]
 dependencies = [
-    'mne>1.10', 'numpy', 'scipy', 'pandas', 'munch', 'nibabel', 'joblib',  'torch', 'keras>3.0', 'scikit-learn', 'huggingface_hub>=0.24.0'
+    'mne>1.10', 'numpy', 'scipy', 'pandas', 'munch', 'nibabel', 'joblib',
+    'torch', 'keras>3.0', 'scikit-learn', 'huggingface_hub>=0.24.0',
+    'matplotlib', 'pillow'
 ]
 version = "0.3.5"
 
@@ -38,4 +40,8 @@ testing = ['datalad','pytest','pygit2']
 
 [tool.setuptools.packages.find]
 include = ["MEG*"]
-exclude = ["extras*", "conda*"]
+exclude = [
+    "MEGnet.tests*",
+    "MEGnet.prep_inputs.tests*",
+    "MEGnet.prep_inputs.extras*",
+]
