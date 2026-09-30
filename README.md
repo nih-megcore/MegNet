@@ -6,7 +6,7 @@ This repository is a fork of the code listed below in the original code referenc
 ## Install (pytorch based version) 
 Tested compatability: (mne 1.10/1.11/1.12 & python 3.11/3.12/3.13/3.14)
 ```
-conda create -n megnet 'mne>=1.10' 'python>3.10'
+conda create -n megnet 'mne>1.10,<1.13' 'python>3.10'
 conda activate megnet
 pip install MEGnet-neuro
 megnet_init  #Download model weights from hugging face
@@ -28,7 +28,7 @@ megnet_init  # Download model weights from Hugging Face
 ## Install (tensorflow based version) 
 Tested compatability: (mne 1.10/1.11/1.12  & python 3.10/3.11/3.12/3.13) (py restricted by tensorflow builds)
 ```
-conda create -n megnet 'mne>=1.10' 'python<3.14'
+conda create -n megnet 'mne>1.10,<1.13' 'python<3.14'
 conda activate megnet
 pip install 'MEGnet-neuro-tf'
 megnet_init #Download model weights from hugging face

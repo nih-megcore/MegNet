@@ -28,7 +28,7 @@ requirements:
     - setuptools
   run:
     - python
-    - mne >1.10
+    - mne >1.10,<1.13
     - numpy
     - scipy
     - pandas
