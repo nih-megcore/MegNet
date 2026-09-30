@@ -1,0 +1,44 @@
+Please make two separate branches to address MNE compatibility.
+
+First inspect the repository's AGENTS.md and packaging configuration before changing anything. Preserve unrelated working-tree changes. Do not install or modify packages in any Conda-managed environment. If testing needs extra dependencies, create a project-local `.venv` using a non-Conda Python, ensure `.venv` is gitignored, and invoke its Python explicitly.
+
+Background:
+MEGnet-neuro 0.3.5 declares `mne>1.10`, but `MEGnet/prep_inputs/ICA.py` imports private functions `_get_patch` and `_cont_collections` from `mne.viz.topomap`. These functions exist in MNE 1.12.1 but were removed in MNE 1.13. As a result, a fresh installation can resolve to MNE 1.13 and fail during import.
+
+Create these two branches:
+
+1. `fix/pin-mne-below-1.13`
+
+Start this branch from the current base branch.
+
+- Update every authoritative packaging/dependency declaration so that MEGnet requires:
+  `mne>1.10,<1.13`
+- Check `pyproject.toml`, setup/configuration files, requirements files, environment files, documentation, and CI definitions. Avoid duplicating constraints unnecessarily; update generated lock files only if the repository normally tracks them.
+- Add or update a packaging test that verifies the published package metadata contains both the lower and upper MNE bounds.
+- Update installation documentation if it currently suggests an incompatible MNE version.
+- Run appropriate formatting, packaging, and test checks.
+- Build both the wheel and source distribution if the repository's tooling supports it, then inspect their metadata to confirm they declare `mne>1.10,<1.13`.
+- Do not upload or publish anything.
+- Summarize the changed files and test results.
+- Commit the changes with a clear commit message, but do not push.
+
+2. `feat/mne-1.13-compat`
+
+Create this as a separate branch from the same original base branch--not from `fix/pin-mne-below-1.13`.
+
+- Update MEGnet so it works with MNE 1.13+ without importing removed private MNE APIs where practical.
+- Investigate how `_get_patch`, `_cont_collections`, and the other private topomap helpers are used in `MEGnet/prep_inputs/ICA.py`.
+- Prefer supported public MNE APIs. If no suitable public API exists, implement a small, well-tested compatibility layer within MEGnet rather than copying large portions of MNE.
+- Preserve compatibility with the oldest MNE version MEGnet intends to support.
+- Once compatibility is demonstrated, choose and document the appropriate MNE dependency range. Do not add an upper bound below 1.13 on this branch.
+- Add tests covering import of `MEGnet.prep_inputs.ICA` and the affected topomap/ICA-image behavior under supported MNE versions.
+- Run the relevant tests and packaging checks.
+- Do not upload, publish, or push anything.
+- Commit the changes with a clear commit message.
+
+Before changing branches, check for uncommitted changes and handle them safely. At the end, report:
+
+- both branch names and commit hashes;
+- the exact dependency metadata on each branch;
+- tests executed and their results;
+- any remaining compatibility risks or private MNE APIs still in use.
