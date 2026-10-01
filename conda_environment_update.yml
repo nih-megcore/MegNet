@@ -4,7 +4,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - mne >1.10,<1.13
+  - mne >1.10
   - python=3.9
   - ipython
   - pip  

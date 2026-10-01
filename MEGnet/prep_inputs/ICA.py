@@ -30,19 +30,14 @@ from mne.defaults import _INTERPOLATION_DEFAULT, _EXTRAPOLATE_DEFAULT, _BORDER_D
 from mne.utils import logger
 import mne.viz.topomap
 import mne.viz
-from mne.viz.topomap import _check_extrapolate, _make_head_outlines, _prepare_topomap, _setup_interp, _get_patch, _draw_outlines, _cont_collections
+from mne.viz.topomap import _check_extrapolate, _make_head_outlines, _prepare_topomap, _setup_interp, _draw_outlines
 from mne.viz.utils import _setup_vmin_vmax, _get_cmap, plt_show
 from scipy.io import savemat
 import PIL.Image
 from MEGnet import megnet_init
 from MEGnet.megnet_utilities import fPredictChunkAndVoting_parrallel
+from MEGnet.prep_inputs._topomap_compat import make_clip_patch, set_contour_clip_path
 import functools
-
-from mne.io.ctf.ctf import RawCTF
-from mne.io.kit.kit import RawKIT
-from mne.io.bti.bti import RawBTi
-from mne.io.fiff.raw import Raw
-raw_typelist = [RawCTF, RawKIT, RawBTi, Raw]
 
 
 # =============================================================================
@@ -158,6 +153,7 @@ def _mod_plot_topomap(
     names=None,
     mask=None,
     mask_params=None,
+    mask_label_params=None,
     contours=6,
     outlines="head",
     sphere=None,
@@ -270,7 +266,7 @@ def _mod_plot_topomap(
     Zi = interp.set_locations(Xi, Yi)()
 
     # plot outline
-    patch_ = _get_patch(outlines, extrapolate, interp, axes)
+    patch_ = make_clip_patch(outlines, extrapolate, interp, axes)
 
     # get colormap normalization
     if cnorm is None:
@@ -317,8 +313,7 @@ def _mod_plot_topomap(
     if patch_ is not None:
         im.set_clip_path(patch_)
         if cont is not None:
-            for col in _cont_collections(cont):
-                col.set_clip_path(patch_)
+            set_contour_clip_path(cont, patch_)
 
     pos_x, pos_y = pos.T
     mask = mask.astype(bool, copy=False) if mask is not None else None
@@ -443,8 +438,9 @@ def assess_bads(raw_fname, is_eroom=False): # assess MEG data for bad channels
         grads = mne.pick_types(raw_check.info, meg='grad')
         # get the standard deviation for each channel, and the trimmed mean of the stds
         # have to do this separately for mags and grads
-        stdraw_mags = np.std(raw_check._data[mags,:],axis=1)
-        stdraw_grads = np.std(raw_check._data[grads,:],axis=1)    
+        raw_data = raw_check.get_data()
+        stdraw_mags = np.std(raw_data[mags, :], axis=1)
+        stdraw_grads = np.std(raw_data[grads, :], axis=1)
         stdraw_trimmedmean_mags = sp.stats.trim_mean(stdraw_mags,0.1)
         stdraw_trimmedmean_grads = sp.stats.trim_mean(stdraw_grads,0.1)
         # we can't use the same threshold here, because grads have a much greater 
@@ -474,7 +470,7 @@ def assess_bads(raw_fname, is_eroom=False): # assess MEG data for bad channels
         
         megs = mne.pick_types(raw_check.info, meg=True)
         # get the standard deviation for each channel, and the trimmed mean of the stds
-        stdraw_megs = np.std(raw_check._data[megs,:],axis=1)
+        stdraw_megs = np.std(raw_check.get_data(picks=megs), axis=1)
         stdraw_trimmedmean_megs = sp.stats.trim_mean(stdraw_megs,0.1)
         flat_megs = np.where(stdraw_megs < stdraw_trimmedmean_megs/100)[0]
         # need to use list comprehensions
@@ -495,7 +491,7 @@ def assess_bads(raw_fname, is_eroom=False): # assess MEG data for bad channels
     
         megs = mne.pick_types(raw_check.info, meg=True)
         # get the standard deviation for each channel, and the trimmed mean of the stds
-        stdraw_megs = np.std(raw_check._data[megs,:],axis=1)
+        stdraw_megs = np.std(raw_check.get_data(picks=megs), axis=1)
         stdraw_trimmedmean_megs = sp.stats.trim_mean(stdraw_megs,0.1)
         flat_megs = np.where(stdraw_megs < stdraw_trimmedmean_megs/100)[0]
         # need to use list comprehensions
@@ -545,7 +541,7 @@ def thresh_get_good_segments(raw):
 def z_get_good_segments(epochs, std_thresh=6):
     '''Identify bad channels using standard deviation'''
     epochs = epochs.copy()
-    z = zscore(np.std(epochs._data, axis=2), axis=0)
+    z = zscore(np.std(epochs.get_data(), axis=2), axis=0)
     bad_epochs = np.where(z>std_thresh)[0]
     epochs.drop(indices=bad_epochs)
     return epochs
@@ -593,7 +589,7 @@ def neighborhood_corr(raw, n_neighbors=6):
     dists, neighbor_mat = get_neighbors(raw) 
     corr_vec=np.zeros(neighbor_mat.shape[0])
     for idx,row in enumerate(neighbor_mat):
-        tmp = (np.corrcoef(raw._data[row])[0,1:] / dists[idx][1:]) * dists[idx][1:].mean()
+        tmp = (np.corrcoef(raw.get_data(picks=row))[0,1:] / dists[idx][1:]) * dists[idx][1:].mean()
         corr_vec[idx] = np.abs(tmp.mean())
 
 # =============================================================================
@@ -619,10 +615,6 @@ def sensor_pos2circle(raw, ica):
 
     '''
     num_chans = len(raw.ch_names)
-    # extract magnetometer positions
-    data_picks, pos, merge_channels, names, ch_type, sphere, clip_origin = \
-        mne.viz.topomap._prepare_topomap_plot(ica, 'mag')
-    
     #Extract channel locations
     # 'loc' has 12 elements, the location plus a 3x3 orientation matrix 
     tmp_ = [i['loc'][0:3] for i in raw.info['chs']]
@@ -694,8 +686,8 @@ def circle_plot(circle_pos=None, data=None, out_fname=None):
     
     mat_fname = os.path.splitext(out_fname)[0]+'.mat'
     
-    matrix_out = np.frombuffer(mnefig.figure.canvas.tostring_rgb(), dtype=np.uint8)
-    matrix_out = matrix_out.reshape(mnefig.figure.canvas.get_width_height()[::-1] + (3,))
+    with PIL.Image.open(out_fname) as rendered_image:
+        matrix_out = np.asarray(rendered_image.convert("RGB"))
     savemat(mat_fname, 
             {'array':matrix_out})
     del mnefig
@@ -744,7 +736,7 @@ def main(filename, results_dir, outbasename=None, mains_freq=60.0,
 
     if (type(filename) == str) | (type(filename) == PosixPath):
         raw = read_raw(filename)
-    elif type(filename) in raw_typelist:
+    elif isinstance(filename, mne.io.BaseRaw):
         raw = deepcopy(filename)
     else:
         raise BaseException('Could not interpret input variable "filename"')
@@ -832,7 +824,7 @@ def main(filename, results_dir, outbasename=None, mains_freq=60.0,
 
       # Save ICA timeseries as input for classification
       # Currently inputs to classification are matlab arrays
-      ica_ts = ica.get_sources(raw)._data.T
+      ica_ts = ica.get_sources(raw).get_data().T
       outfname = f'{results_dir}/ICATimeSeries.mat' #'{file_base}-ica-ts.mat'
       savemat(outfname, {'arrICATimeSeries':ica_ts})
     

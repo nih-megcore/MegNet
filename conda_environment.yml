@@ -202,7 +202,7 @@ dependencies:
     - urllib3==1.26.3
     - werkzeug==1.0.1
     - wrapt==1.12.1
-    - mne >1.10,<1.13
+    - mne >1.10
     - git+https://github.com/mne-tools/mne-hcp.git
     - tqdm
     - pooch 

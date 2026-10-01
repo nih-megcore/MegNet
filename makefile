@@ -16,7 +16,7 @@ install_test:
 	else \
 		echo "Environment $(ENV_NAME) not found, skipping."; \
 	fi
-	conda create --override-channels --channel=conda-forge --name=$(ENV_NAME) "mne>1.10,<1.13" pip pytest "python<3.14" ipython -y
+	conda create --override-channels --channel=conda-forge --name=$(ENV_NAME) "mne>1.10" pip pytest "python<3.14" ipython -y
 	($(CONDA_ACTIVATE) megnet_test ; pip install -e .['testing']  )
 	($(CONDA_ACTIVATE) megnet_test ;  megnet_init  )
 
@@ -27,7 +27,7 @@ install_data:
 
 install_headless_test:
 	conda env remove -n megnet_test
-	mamba create --override-channels --channel=conda-forge --name=megnet_test "mne>1.10,<1.13" pip pytest "vtk>=9.2=*osmesa*" "mesalib=21.2.5" -y
+	mamba create --override-channels --channel=conda-forge --name=megnet_test "mne>1.10" pip pytest "vtk>=9.2=*osmesa*" "mesalib=21.2.5" -y
 	($(CONDA_ACTIVATE) megnet_test ; pip install -e .['testing'] )
 
 install_system_requirements:
