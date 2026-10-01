@@ -4,7 +4,7 @@ channels:
   - conda-forge
   - defaults
 dependencies:
-  - mne
+  - mne >1.10
   - python=3.9
   - ipython
   - pip  
@@ -14,4 +14,3 @@ dependencies:
     - git+https://github.com/mne-tools/mne-hcp.git
     - tensorflow-addons
     - git+https://github.com/nih-megcore/MegNET_2020.git
-
