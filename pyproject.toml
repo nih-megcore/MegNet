@@ -24,7 +24,7 @@ dependencies = [
     'torch', 'keras>3.0', 'scikit-learn', 'huggingface_hub>=0.24.0',
     'matplotlib', 'pillow'
 ]
-version = "0.3.5"
+version = "0.3.5.1"
 
 [project.optional-dependencies]
 dev = ['stabilized-ica']
